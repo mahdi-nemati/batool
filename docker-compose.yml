@@ -1,0 +1,62 @@
+# Batool — local development infrastructure.
+#
+# Default (`docker compose up -d`) starts only PostgreSQL, which is what the
+# Bun-driven dev workflow needs (apps run locally via `bun run dev`).
+#
+# Optional full-stack mode (also containerises the API + web):
+#   docker compose --profile app up --build
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: batool-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-batool}
+      POSTGRES_USER: ${POSTGRES_USER:-batool}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-batool}
+    ports:
+      - "${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - batool-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-batool} -d ${POSTGRES_DB:-batool}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    container_name: batool-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-batool}:${POSTGRES_PASSWORD:-batool}@postgres:5432/${POSTGRES_DB:-batool}
+      API_PORT: "4000"
+      WEB_ORIGIN: http://localhost:3000
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    container_name: batool-web
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_ORIGIN: http://localhost:4000/api
+      API_SERVER_ORIGIN: http://api:4000/api
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  batool-postgres:

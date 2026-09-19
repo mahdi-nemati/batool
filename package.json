@@ -1,0 +1,32 @@
+{
+  "name": "batool",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --parallel --filter './apps/api' --filter './apps/web' dev",
+    "dev:api": "bun run --filter './apps/api' dev",
+    "dev:web": "bun run --filter './apps/web' dev",
+    "build": "bun run --sequential --filter './apps/api' --filter './apps/web' build",
+    "start": "bun run --parallel --filter './apps/api' --filter './apps/web' start",
+    "lint": "bun run --parallel --filter './apps/api' --filter './apps/web' lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "bun run --parallel --filter './apps/api' --filter './apps/web' --filter './packages/types' --filter './packages/config' typecheck",
+    "db:generate": "bun run --filter '@batool/database' db:generate",
+    "db:migrate": "bun run --filter '@batool/database' db:migrate",
+    "db:deploy": "bun run --filter '@batool/database' db:deploy",
+    "db:status": "bun run --filter '@batool/database' db:status",
+    "db:reset": "bun run --filter '@batool/database' db:reset",
+    "db:seed": "bun run --filter '@batool/database' db:seed"
+  },
+  "devDependencies": {
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
+  }
+}

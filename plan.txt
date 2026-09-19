@@ -1,0 +1,1882 @@
+# Asset & Personal Finance Management App
+
+## 1. Role
+
+You are a senior full-stack software engineer and software architect.
+
+Your task is to design and implement a personal asset and financial management application according to the requirements in this document.
+
+This is an MVP for a personal project.
+
+You must:
+
+* Understand the existing repository before making changes.
+* Follow the requirements and business rules in this document strictly.
+* Do not invent product requirements that are not specified.
+* When a technical implementation detail is unspecified, choose a simple, maintainable solution appropriate for an MVP.
+* Do not over-engineer the application.
+* Do not add features outside the defined MVP scope.
+* Implement the project incrementally in phases.
+* Do not attempt to implement the entire application in one step.
+* After completing each phase, verify that the implementation is consistent with previous phases before moving forward.
+
+---
+
+# 2. Product Overview
+
+Build a Persian, RTL personal finance and asset management application.
+
+The application allows a user to manage:
+
+* Bank accounts
+* Rial/Toman savings funds
+* Gold holdings
+* USD holdings
+* Income
+* Expenses
+* Transfers
+* Debts and receivables
+* Installments
+* Financial counterparties
+* Monthly financial statistics
+* Setar (three-string Persian musical instrument) lessons and tuition
+* User profile
+* Admin-managed categories
+
+The application must have a minimal, clean Persian UI.
+
+---
+
+# 3. Technology Stack
+
+Use the following stack:
+
+### Frontend
+
+* Next.js
+* TypeScript
+* Tailwind CSS
+
+### Backend
+
+* NestJS
+* TypeScript
+
+### Database
+
+* PostgreSQL
+* Prisma ORM
+
+### Infrastructure
+
+* Docker
+* Docker Compose where appropriate
+
+### Package Manager / Monorepo
+
+* Bun
+* Bun workspaces
+
+Do not introduce another package manager unless absolutely necessary.
+
+The project should be structured as a TypeScript monorepo.
+
+Recommended structure:
+
+```text
+project-root/
+├── apps/
+│   ├── web/
+│   └── api/
+│
+├── packages/
+│   ├── database/
+│   ├── types/
+│   └── config/
+│
+├── docker/
+├── docker-compose.yml
+├── package.json
+└── README.md
+```
+
+The exact package structure may be adjusted if there is a strong architectural reason, but keep the repository simple.
+
+---
+
+# 4. Language, Locale and UI
+
+The application is Persian-first.
+
+Requirements:
+
+* Entire UI must be RTL.
+* UI language must be Persian.
+* Use Persian labels and terminology.
+* Use a Persian-friendly UI style.
+* Use a minimal and clean design.
+* Use Shamsi/Jalali calendar and dates in the UI.
+* Backend/database may store dates in Gregorian/UTC or another technically appropriate format.
+* Conversion between backend date representation and Jalali UI representation must happen at the application boundary.
+* Do not store Shamsi date strings as the primary database representation unless there is a strong reason.
+
+### Currency
+
+The application's monetary unit is **Toman everywhere**.
+
+There is NO Rial/Toman conversion.
+
+All monetary values in:
+
+* Bank accounts
+* Rial/Toman funds
+* Income
+* Expenses
+* Debts
+* Installments
+* Setar tuition
+
+are stored and displayed as **Toman**.
+
+Do not use Rial anywhere in the financial domain.
+
+The only non-Toman asset units are:
+
+* Gold → grams
+* USD → dollars
+
+---
+
+# 5. Core Financial Principles
+
+These rules are critical.
+
+## 5.1 Balance is derived from financial events
+
+An asset's balance must not be arbitrarily modified by the UI.
+
+Financial events are the source of truth for balance changes.
+
+For example:
+
+```text
+Bank Account
+    ↓
+Income / Expense / Transfer
+    ↓
+Current Balance
+```
+
+The application must prevent users from creating a negative balance for assets.
+
+Example:
+
+```text
+Bank balance = 1,000,000
+
+Expense = 1,500,000
+
+→ Reject operation
+→ Balance must never become negative
+```
+
+This validation must exist on the backend, not only in the frontend.
+
+---
+
+# 6. Asset Types
+
+There are four conceptual asset categories.
+
+## 6.1 Bank Accounts
+
+A user can create multiple bank accounts.
+
+Each bank account has:
+
+* Name
+* Initial balance
+* Current balance
+* Creation date
+* Active/inactive state if needed by implementation
+
+Example:
+
+```text
+Mellat
+Initial balance: 50,000,000 Toman
+```
+
+After creation, the current balance changes only through financial operations.
+
+A bank account can:
+
+* Receive income
+* Pay expenses
+* Transfer money to another bank account
+* Transfer money to a Toman/Rial savings fund
+* Transfer money to Gold
+* Transfer money to USD
+* Receive transfers from other supported assets
+
+A bank account balance cannot become negative.
+
+---
+
+# 7. Toman Financial Funds
+
+A user can create multiple financial funds.
+
+Example:
+
+```text
+Emergency Fund
+Goal: 100,000,000 Toman
+```
+
+A fund has:
+
+* Name
+* Goal amount (optional)
+* Current balance
+* Creation date
+
+Funds are Toman-denominated.
+
+## Important rule
+
+A fund does NOT have Income or Expense transactions.
+
+A fund only participates in transfers.
+
+Examples:
+
+```text
+Bank → Fund
+Fund → Bank
+```
+
+Therefore:
+
+```text
+Bank:
+Transfer 10,000,000 to Emergency Fund
+
+Fund:
++10,000,000
+```
+
+The transfer must not appear as an income or expense in financial statistics.
+
+The fund's balance must never become negative.
+
+---
+
+# 8. Gold Asset
+
+There is exactly one Gold wallet per user.
+
+It:
+
+* Exists by default.
+* Cannot be deleted.
+* Is not user-created.
+* Uses grams as its unit.
+* Has no Toman valuation.
+* Must not be converted to Toman.
+* Must not display a Toman equivalent.
+
+Example:
+
+```text
+Gold
+1.5 g
+```
+
+Gold can participate in transfers.
+
+Example:
+
+```text
+Bank Mellat
+    ↓
+Buy 1.5g Gold
+```
+
+The system should record:
+
+* Source bank
+* Gold quantity
+* Toman amount paid at that moment, if required for transaction history
+* Date
+* Description
+
+However, the Toman purchase price is NOT used to calculate the Gold wallet's current value.
+
+The Gold wallet only displays:
+
+```text
+1.5 g
+```
+
+---
+
+# 9. USD Asset
+
+There is exactly one USD wallet per user.
+
+It:
+
+* Exists by default.
+* Cannot be deleted.
+* Is not user-created.
+* Uses USD as its unit.
+* Has no Toman valuation.
+* Must not be converted to Toman.
+* Must not display a Toman equivalent.
+
+Example:
+
+```text
+USD
+1,250 USD
+```
+
+It supports transfers such as:
+
+```text
+Bank Mellat
+    ↓
+Buy 100 USD
+```
+
+The system should record the source bank, USD quantity, date and relevant transaction information.
+
+The Toman amount paid may be stored for historical information, but it must never be used to calculate the USD wallet's current value.
+
+---
+
+# 10. Transfers
+
+Transfers are a first-class financial concept.
+
+Do NOT model transfers as ordinary income or expenses.
+
+Transfers may happen between:
+
+* Bank → Bank
+* Bank → Toman Fund
+* Toman Fund → Bank
+* Bank → Gold
+* Gold → Bank
+* Bank → USD
+* USD → Bank
+
+The system should maintain a relationship between the source and destination sides of a transfer.
+
+Example:
+
+```text
+Bank Mellat
+- 20,000,000 Toman
+
+→ Emergency Fund
++ 20,000,000 Toman
+```
+
+This is one logical transfer.
+
+Another example:
+
+```text
+Bank Mellat
+- 10,000,000 Toman
+
+→ Gold
++ 1.5g Gold
+```
+
+The UI should describe this appropriately:
+
+> خرید ۱.۵ گرم طلا از حساب ملت
+
+For a Toman fund:
+
+> واریز ۱۰,۰۰۰,۰۰۰ تومان از حساب ملت
+
+For USD:
+
+> خرید ۱۰۰ دلار از حساب ملت
+
+Do not expose internal transfer implementation details to the user.
+
+---
+
+# 11. Income and Expense Transactions
+
+The application has financial transactions.
+
+Transaction types:
+
+* Income
+* Expense
+
+Each transaction may contain:
+
+* Amount
+* Category
+* Source account/asset
+* Description
+* Date
+* Related counterparty where applicable
+* Metadata/reference to related financial operation where appropriate
+
+For MVP, Income and Expense sources are limited to:
+
+* Bank accounts
+* Toman funds
+
+Gold and USD are NOT valid sources for ordinary Income/Expense transactions.
+
+---
+
+# 12. Expense Splitting and Counterparty Debts
+
+A very important use case is shared expenses.
+
+Example:
+
+Mahdi and Ali have dinner.
+
+Total bill:
+
+```text
+2,000,000 Toman
+```
+
+Mahdi pays the entire amount.
+
+Mahdi's actual share:
+
+```text
+1,000,000
+```
+
+Ali's share:
+
+```text
+1,000,000
+```
+
+The application should allow the user to record:
+
+```text
+Expense
+-------------------------
+Total: 2,000,000
+Category: Food
+Source: Mellat
+Description: Dinner with Ali
+
+My share: 1,000,000
+Ali's share: 1,000,000
+```
+
+Financially this produces:
+
+```text
+Bank:
+-2,000,000
+
+Actual personal expense:
+1,000,000
+
+Receivable from Ali:
+1,000,000
+```
+
+The entire 2,000,000 is NOT considered the user's personal expense.
+
+This is essential for correct statistics.
+
+---
+
+# 13. Debt / Receivable System
+
+Debt and receivables must be modeled separately from ordinary income/expense transactions.
+
+The system needs a financial relationship between the user and a counterparty.
+
+A counterparty can be:
+
+1. Another registered application user.
+2. An external person who is not a registered user.
+
+Each counterparty should have:
+
+* Name / nickname
+* User relationship if connected to a registered user
+* Creation date
+* Relevant metadata
+
+---
+
+# 14. External Counterparties
+
+An external counterparty is someone who is not registered in the application.
+
+Example:
+
+```text
+Ali
+```
+
+The current user manages all financial interactions with that person.
+
+The user can create debt events such as:
+
+```text
+Ali owes me 1,000,000 Toman
+```
+
+or:
+
+```text
+I owe Ali 1,000,000 Toman
+```
+
+The user is responsible for recording both sides of the financial relationship.
+
+---
+
+# 15. Connected User Counterparties
+
+Two registered users can connect with each other.
+
+A user can invite another user using their username.
+
+The invited user can accept the connection.
+
+Once connected:
+
+* Both users can see the relevant shared financial relationship.
+* Both users can create Debt Events related to each other.
+* Debt Events do NOT require acceptance for MVP.
+
+Example:
+
+```text
+Mahdi ↔ Ali
+```
+
+Mahdi can create:
+
+```text
+Ali owes Mahdi 1,000,000
+```
+
+Ali can also create a Debt Event involving Mahdi.
+
+The system must maintain the relationship consistently for both users.
+
+---
+
+# 16. Debt Events
+
+A Debt Event represents a financial obligation between two counterparties.
+
+Examples:
+
+```text
+Ali owes Mahdi 1,000,000
+```
+
+or:
+
+```text
+Mahdi owes Ali 1,500,000
+```
+
+Each Debt Event should have:
+
+* Direction
+* Amount
+* Counterparty
+* Description
+* Date
+* Optional link to an expense/income/financial operation
+* Status where needed
+
+Debt Events must be auditable and historically preserved.
+
+Do not simply overwrite a person's current debt balance.
+
+The current balance should be derived from the underlying debt events and settlements.
+
+---
+
+# 17. Debt Settlement
+
+Debt repayment is a dedicated action.
+
+Example:
+
+```text
+Ali owes Mahdi 2,000,000
+```
+
+Ali selects:
+
+> Pay Debt
+
+and provides the required source account.
+
+The system creates the appropriate financial transaction automatically.
+
+A debt settlement must:
+
+1. Reduce the outstanding debt.
+2. Create the corresponding financial cash movement.
+3. Preserve the relationship between the settlement and the original debt.
+
+For example, receiving a debt repayment should produce an Income-like financial movement into the selected bank account, while retaining the fact that it was a debt settlement.
+
+Do not require the user to manually create a separate ordinary Income transaction.
+
+---
+
+# 18. Counterparty Detail Page
+
+Every counterparty must have a dedicated page.
+
+The page should show:
+
+* Counterparty name
+* Current net balance
+* Whether the counterparty owes the user or the user owes the counterparty
+* Total receivables
+* Total payables
+* All financial interactions
+* Dates
+* Descriptions
+* Relevant expenses
+* Debt events
+* Settlements
+
+Example:
+
+```text
+Ali
+
+Current status:
+Ali owes you
+
+Current balance:
+2,000,000 Toman
+
+Financial interactions:
+--------------------------------
+12 Shahrivar
+Dinner
++1,000,000
+
+15 Shahrivar
+Dinner
+-1,500,000
+
+20 Shahrivar
+Debt settlement
++2,500,000
+```
+
+The exact UI can be designed appropriately, but the financial direction must always be clear.
+
+---
+
+# 19. Debt Summary
+
+The debt section must provide:
+
+### Overall
+
+* Total amount others owe me
+* Total amount I owe others
+* Net debt position
+
+### Per counterparty
+
+For every person:
+
+* Amount they owe me
+* Amount I owe them
+* Net balance
+* Relationship status
+
+The user must be able to navigate from the summary to the counterparty detail page.
+
+---
+
+# 20. Installments
+
+The application must support recurring monthly installments.
+
+Every installment has:
+
+* Name
+* Fixed monthly amount
+* Monthly due day
+* Total number of installments
+* Number of paid installments
+* Number of remaining installments
+* Next due date
+* Status
+
+Example:
+
+```text
+Car Loan
+
+Amount:
+5,000,000 Toman
+
+Due day:
+12th of every month
+
+Total:
+24 installments
+
+Paid:
+7
+
+Remaining:
+17
+```
+
+The installment amount is fixed.
+
+---
+
+# 21. Installment Due Status
+
+If the due day is today:
+
+```text
+Due today
+```
+
+If the due day has passed and the installment has not been paid:
+
+```text
+Overdue
+```
+
+Example:
+
+```text
+Due date: 12 Shahrivar
+Today: 13 Shahrivar
+
+→ Overdue
+```
+
+Once the installment is paid:
+
+* Mark the current installment as paid.
+* Increment the paid installment count.
+* Decrement the remaining count.
+* Calculate/display the next monthly due date.
+
+---
+
+# 22. Installment Payment
+
+Installment payment must be a dedicated action.
+
+When the user selects:
+
+> Pay installment
+
+they select the source bank account.
+
+The system automatically creates the corresponding Expense.
+
+The Expense should automatically contain:
+
+* Correct amount
+* Installment category
+* Appropriate description
+* Correct date
+* Source bank account
+* Reference to the installment payment
+
+Example description:
+
+```text
+پرداخت قسط وام خودرو - قسط ۸ از ۲۴
+```
+
+The user should not need to manually create the expense.
+
+---
+
+# 23. Categories
+
+Categories have a type:
+
+```text
+EXPENSE
+INCOME
+```
+
+An administrator can CRUD categories.
+
+Categories should support:
+
+* Name
+* Type
+* Active/deleted state as appropriate
+* Creation/update timestamps
+
+Seed the application with sensible default Persian categories.
+
+Example Expense categories:
+
+```text
+غذا
+حمل‌ونقل
+خرید
+قبوض
+تفریح
+سلامت
+آموزش
+مسکن
+اقساط
+سایر
+```
+
+Example Income categories:
+
+```text
+حقوق
+فریلنس
+پاداش
+هدیه
+سایر
+```
+
+These are examples; choose a sensible minimal seed set.
+
+## Category deletion
+
+Use soft deletion or another safe strategy.
+
+A category that has already been used by historical transactions must not break those transactions when an administrator removes it from active use.
+
+Historical financial data must remain valid.
+
+---
+
+# 24. Setar Module
+
+The application includes a dedicated Setar lesson/tuition module.
+
+The user attends Setar lessons.
+
+One tuition cycle consists of exactly 4 sessions.
+
+Time is NOT the basis for tuition payment.
+
+The number of completed sessions is the basis.
+
+Example:
+
+```text
+Tuition: 1,000,000 Toman
+
+Session 1
+Session 2
+Session 3
+Session 4
+
+→ Tuition payment required
+```
+
+The user can record the date of every session.
+
+It does not matter whether the four sessions happen within one calendar month.
+
+Example:
+
+```text
+Month A:
+2 sessions
+
+Month B:
+2 sessions
+```
+
+The fourth session still completes the cycle.
+
+---
+
+# 25. Setar Session Rules
+
+The system must:
+
+* Allow session 1.
+* Allow session 2.
+* Allow session 3.
+* Allow session 4.
+* After session 4, prevent recording session 5.
+* Require tuition payment before another session can be recorded.
+* After tuition payment, start a new cycle from session 1.
+
+The UI should clearly tell the user:
+
+> شهریه این دوره باید پرداخت شود.
+
+---
+
+# 26. Setar Tuition
+
+The user must have a default tuition amount.
+
+The tuition amount can change over time.
+
+Historical tuition payments must preserve the amount that was actually paid.
+
+Do not simply overwrite historical tuition amounts when the current tuition changes.
+
+A suitable model is:
+
+```text
+Setar Settings
+    current tuition amount
+
+Tuition Cycle
+    tuition amount at cycle creation/payment
+
+Sessions
+    session dates
+
+Tuition Payment
+    actual paid amount
+    payment date
+```
+
+---
+
+# 27. Setar Tuition Payment
+
+The user should have a dedicated:
+
+> Pay Setar Tuition
+
+action.
+
+The payment must integrate with the application's financial system.
+
+The user selects a bank account.
+
+The application automatically creates the appropriate Expense.
+
+The user should not manually create a second expense.
+
+The resulting expense should contain:
+
+* Amount
+* Setar-related category
+* Appropriate description
+* Source bank
+* Date
+* Reference to the Setar tuition payment
+
+After successful payment:
+
+```text
+Current cycle
+    4 / 4
+
+        ↓
+
+Payment
+
+        ↓
+
+New cycle
+    0 / 4
+```
+
+---
+
+# 28. Dashboard
+
+The home/dashboard page should provide:
+
+## Quick Actions
+
+Examples:
+
+* Add expense
+* Add income
+* Transfer money
+* Add bank account
+* Add fund
+* Record debt
+* Pay installment
+* Record Setar session
+
+The exact quick actions can be adjusted based on UX.
+
+## Summary
+
+Show useful high-level information such as:
+
+* Current bank balances
+* Toman fund balances
+* Gold balance in grams
+* USD balance in dollars
+* Total receivables
+* Total payables
+* Current month's income
+* Current month's expenses
+* Current month's net cash flow
+* Upcoming/overdue installments
+* Setar session progress
+
+Do not calculate or display a Toman net worth for Gold or USD.
+
+---
+
+# 29. Financial Statistics
+
+The statistics section should provide monthly financial analysis.
+
+At minimum:
+
+### Monthly income
+
+Example:
+
+```text
+Mordad:
+Income: 50,000,000 Toman
+```
+
+### Monthly expenses
+
+```text
+Mordad:
+Expenses: 32,000,000 Toman
+```
+
+### Net cash flow
+
+```text
+Income - Expenses
+```
+
+### Expense category distribution
+
+Example:
+
+```text
+Food: 30%
+Transport: 15%
+Entertainment: 10%
+...
+```
+
+### Historical monthly comparison
+
+Show income and expenses across several months.
+
+The statistics should distinguish between:
+
+* Real income
+* Real expenses
+* Transfers
+* Debt settlements
+
+Transfers must not artificially inflate income/expense statistics.
+
+Debt settlements should not be treated as ordinary income/expense without preserving their settlement nature.
+
+Split expenses must count only the user's actual share as their personal expense for analytical purposes, while the complete cash movement remains represented correctly in the financial ledger.
+
+---
+
+# 30. Profile
+
+Every user has a profile page.
+
+The user can manage:
+
+* Email
+* Password
+* Nickname
+
+Username should be treated as the stable identity used for invitations.
+
+Do not allow casual username changes unless there is a strong architectural reason.
+
+---
+
+# 31. Authentication
+
+Authentication uses:
+
+* Email
+* Password
+
+Use secure authentication appropriate for a modern web application.
+
+Preferred approach:
+
+* Short-lived access authentication
+* Secure HttpOnly cookies
+* Appropriate password hashing
+* Server-side authorization
+
+Do not store plaintext passwords.
+
+---
+
+# 32. Roles
+
+There are two roles:
+
+```text
+USER
+ADMIN
+```
+
+For MVP, Admin capabilities are intentionally limited.
+
+Admin can:
+
+* CRUD categories
+
+Do not build a large admin panel.
+
+Do not add unnecessary administrative functionality.
+
+---
+
+# 33. Data Integrity
+
+Financial correctness is more important than convenience.
+
+The backend must enforce:
+
+* No negative asset balances.
+* No negative Gold quantity.
+* No negative USD quantity.
+* No negative Toman fund balance.
+* No negative bank balance.
+* Transfers must have valid source and destination.
+* An asset cannot transfer more than its available balance.
+* A Setar cycle cannot exceed four sessions.
+* A new Setar session cannot be created while tuition is unpaid.
+* Historical transactions must remain consistent.
+* Deleted categories must not break historical transactions.
+* Debt settlements cannot exceed the outstanding amount unless the product explicitly supports overpayment.
+* Installment counts must remain consistent.
+
+Use database transactions for operations that modify multiple related records.
+
+For example:
+
+```text
+Pay Installment
+    ↓
+Create Expense
+    ↓
+Update Installment
+```
+
+These must succeed or fail atomically.
+
+The same applies to:
+
+```text
+Debt Settlement
+    ↓
+Financial transaction
+    ↓
+Debt state update
+```
+
+and:
+
+```text
+Transfer
+    ↓
+Source change
+    ↓
+Destination change
+```
+
+---
+
+# 34. Database Design Principles
+
+Use Prisma with PostgreSQL.
+
+Model the domain explicitly.
+
+Avoid creating one giant generic table that tries to represent every possible financial event.
+
+At minimum, the domain should conceptually distinguish:
+
+* User
+* BankAccount
+* Fund
+* GoldWallet
+* UsdWallet
+* Category
+* Financial Transaction
+* Transfer
+* Counterparty
+* UserConnection
+* DebtEvent
+* DebtSettlement
+* Installment
+* InstallmentPayment
+* SetarProfile/Settings
+* SetarCycle
+* SetarSession
+* SetarTuitionPayment
+
+The exact schema and naming can be refined during implementation.
+
+Use appropriate foreign keys, indexes, unique constraints, timestamps and enums.
+
+---
+
+# 35. Monetary Representation
+
+Use an exact representation for monetary amounts.
+
+Do not use JavaScript floating-point numbers for financial calculations.
+
+Use a database representation and TypeScript strategy that prevents floating-point precision errors.
+
+Toman amounts must be exact.
+
+Gold quantities and USD quantities must also use appropriate precision.
+
+For example:
+
+```text
+Gold:
+1.500 g
+
+USD:
+1250.00 USD
+```
+
+The precision should be explicitly defined in the database rather than relying on floating-point arithmetic.
+
+---
+
+# 36. API Design
+
+The NestJS API should be modular.
+
+Recommended modules:
+
+```text
+auth
+users
+bank-accounts
+funds
+assets
+transactions
+transfers
+categories
+counterparties
+debts
+installments
+setar
+dashboard
+statistics
+```
+
+The exact module boundaries may be adjusted when implementing.
+
+API responses should be predictable and typed.
+
+Validate all incoming data on the backend.
+
+Frontend validation is useful for UX but is never the only validation layer.
+
+---
+
+# 37. Frontend Architecture
+
+Use Next.js and TypeScript.
+
+The frontend should have:
+
+* RTL layout
+* Persian typography
+* Responsive design
+* Minimal UI
+* Clear financial states
+* Loading states
+* Empty states
+* Error states
+* Confirmation dialogs for destructive/important operations
+
+Do not build a visually complicated dashboard.
+
+Prioritize usability and clarity.
+
+---
+
+# 38. Persian UI
+
+All user-facing financial concepts should use clear Persian terminology.
+
+Examples:
+
+```text
+Dashboard → داشبورد
+Bank Account → حساب بانکی
+Fund → صندوق
+Income → درآمد
+Expense → هزینه
+Transfer → انتقال
+Debt → بدهی
+Receivable → طلب
+Installment → قسط
+Category → دسته‌بندی
+Counterparty → طرف حساب
+Gold → طلا
+USD → دلار
+```
+
+Dates should be displayed in Jalali/Shamsi format.
+
+Amounts should be displayed with appropriate Persian number formatting where appropriate.
+
+---
+
+# 39. MVP Scope
+
+This is an MVP.
+
+Do NOT implement:
+
+* Mobile native application
+* Push notifications
+* Real-time gold prices
+* Real-time USD prices
+* Currency conversion
+* Toman valuation of Gold
+* Toman valuation of USD
+* Investment market integrations
+* Bank APIs
+* External payment gateways
+* Advanced financial forecasting
+* Complex budgeting systems
+* AI financial recommendations
+* Frontend tests
+* Backend tests
+
+Testing is intentionally out of scope for this MVP.
+
+However, the code must still be structured cleanly and defensively.
+
+---
+
+# 40. No External Payment Gateway
+
+"Pay installment" and "Pay Setar tuition" do NOT mean an online payment gateway.
+
+They mean:
+
+> Record the payment inside this application's own financial system.
+
+For example:
+
+```text
+Pay Installment
+    ↓
+Select Bank Account
+    ↓
+Create Expense
+    ↓
+Update installment
+```
+
+and:
+
+```text
+Pay Setar Tuition
+    ↓
+Select Bank Account
+    ↓
+Create Expense
+    ↓
+Close current Setar cycle
+    ↓
+Create new cycle
+```
+
+---
+
+# 41. Development Phases
+
+Implement the project in the following phases.
+
+Do not skip directly to the final application.
+
+## Phase 0 — Foundation
+
+Implement:
+
+* Bun workspace monorepo
+* Next.js application
+* NestJS application
+* PostgreSQL
+* Prisma
+* Docker
+* Environment configuration
+* Basic shared packages
+* Basic linting/formatting if appropriate
+* Basic README
+* Database connection
+* Migration setup
+
+Do not implement business features yet.
+
+---
+
+## Phase 1 — Authentication and Users
+
+Implement:
+
+* User model
+* Registration
+* Login
+* Logout
+* Password hashing
+* Authentication
+* HttpOnly authentication mechanism
+* USER/ADMIN roles
+* Profile
+* Email/password management
+* Nickname
+* Basic authorization
+
+Admin category functionality can be introduced later.
+
+---
+
+## Phase 2 — Financial Core
+
+Implement:
+
+* Bank accounts
+* Initial balances
+* Toman funds
+* Gold wallet
+* USD wallet
+* Transfers
+* Balance calculations
+* Balance validation
+* Atomic financial operations
+
+At the end of this phase, the core asset system must work correctly.
+
+---
+
+## Phase 3 — Income, Expense and Categories
+
+Implement:
+
+* Categories
+* Seed categories
+* Income
+* Expense
+* Category filtering
+* Transaction history
+* Expense/income forms
+* Source selection
+* Description
+* Jalali date UI
+
+Implement split expenses and their counterparty relationships where appropriate.
+
+---
+
+## Phase 4 — Counterparties and Debt System
+
+Implement:
+
+* External counterparties
+* User connections
+* Username invitation
+* Connected users
+* Debt Events
+* Receivables
+* Payables
+* Counterparty pages
+* Debt summary
+* Split expense relationships
+* Debt settlements
+* Financial integration for settlements
+
+This phase must preserve the distinction between:
+
+```text
+Expense
+Debt
+Settlement
+Transfer
+```
+
+Do not collapse these concepts into one generic transaction type.
+
+---
+
+## Phase 5 — Installments
+
+Implement:
+
+* Installment CRUD
+* Monthly due date
+* Fixed amount
+* Total installment count
+* Paid/remaining count
+* Due state
+* Overdue state
+* Payment action
+* Automatic expense creation
+* Installment history
+
+---
+
+## Phase 6 — Gold and USD
+
+Implement/refine:
+
+* Gold wallet
+* USD wallet
+* Buy/sell flows
+* Correct quantity handling
+* Source bank
+* Historical purchase amount where applicable
+* Correct UI descriptions
+* No Toman valuation
+
+Ensure Gold and USD never appear as ordinary Toman income/expense sources.
+
+---
+
+## Phase 7 — Setar
+
+Implement:
+
+* Setar configuration
+* Default tuition
+* Tuition changes
+* Tuition cycles
+* Sessions
+* Session dates
+* 4-session rule
+* Tuition payment
+* Automatic expense creation
+* Cycle reset
+* Historical tuition amounts
+
+---
+
+## Phase 8 — Dashboard and Statistics
+
+Implement:
+
+* Dashboard
+* Quick actions
+* Current financial summary
+* Monthly income
+* Monthly expenses
+* Net cash flow
+* Expense category breakdown
+* Monthly history
+* Debt summary
+* Installment status
+* Setar progress
+* Gold quantity
+* USD quantity
+
+Keep statistics understandable and minimal.
+
+---
+
+## Phase 9 — Final MVP Polish
+
+Review:
+
+* RTL
+* Persian language
+* Jalali dates
+* Responsive UI
+* Loading states
+* Empty states
+* Error states
+* Validation
+* Authorization
+* Financial consistency
+* Database constraints
+* UX consistency
+* Navigation
+* README
+* Environment setup
+* Docker setup
+
+Do not add unrelated features.
+
+---
+
+# 42. Agent Development Workflow
+
+For every phase:
+
+### Step 1 — Inspect
+
+Before changing code:
+
+* Inspect the existing repository.
+* Understand the current architecture.
+* Inspect existing models and modules.
+* Identify conflicts with the current phase.
+
+### Step 2 — Plan
+
+Produce a short implementation plan.
+
+Include:
+
+* Files/modules to create
+* Files/modules to modify
+* Database changes
+* API changes
+* Frontend changes
+* Important business rules
+
+### Step 3 — Implement
+
+Implement only the current phase.
+
+Do not silently implement future phases.
+
+### Step 4 — Validate
+
+Even though automated tests are out of MVP scope:
+
+* Run TypeScript checks.
+* Run Prisma validation/generation.
+* Run build checks.
+* Run linting if configured.
+* Verify database migrations.
+* Verify the application starts.
+* Manually verify critical financial flows where possible.
+
+### Step 5 — Review
+
+Before declaring the phase complete:
+
+* Check business rules.
+* Check authorization.
+* Check financial integrity.
+* Check for duplicated logic.
+* Check for unnecessary complexity.
+
+### Step 6 — Report
+
+At the end of each phase, report:
+
+```text
+Phase:
+Status:
+
+Implemented:
+- ...
+- ...
+- ...
+
+Database:
+- ...
+
+API:
+- ...
+
+Frontend:
+- ...
+
+Important decisions:
+- ...
+
+Validation performed:
+- ...
+
+Known limitations:
+- ...
+
+Next phase:
+- ...
+```
+
+---
+
+# 43. Agent Decision Rules
+
+When a requirement is not explicitly defined:
+
+1. Prefer the simplest solution.
+2. Prefer consistency with existing architecture.
+3. Prefer explicit domain models over generic abstractions.
+4. Prefer server-side enforcement for financial rules.
+5. Prefer database transactions for atomic financial operations.
+6. Do not introduce unnecessary libraries.
+7. Do not introduce unnecessary infrastructure.
+8. Do not add features because they "might be useful later."
+9. Preserve historical financial data.
+10. Never silently change the financial meaning of an existing record.
+
+If a requirement is genuinely ambiguous and the decision could materially affect the database schema or financial behavior, stop and ask for clarification before implementing that part.
+
+Do not guess critical financial semantics.
+
+---
+
+# 44. Important Domain Distinctions
+
+These distinctions must remain explicit throughout the codebase.
+
+### Expense
+
+Money spent by the user.
+
+### Income
+
+Money received by the user as income.
+
+### Transfer
+
+Movement of value between assets owned by the user.
+
+A transfer is NOT income or expense.
+
+### Debt Event
+
+Creates or modifies an obligation between two people.
+
+A Debt Event is NOT automatically an Expense or Income.
+
+### Debt Settlement
+
+Repays an existing debt and creates the corresponding financial movement.
+
+### Split Expense
+
+An Expense where another person's share creates a receivable relationship.
+
+Example:
+
+```text
+Total expense: 2m
+My share: 1m
+Ali's share: 1m
+
+Cash movement: -2m
+Personal expense: 1m
+Receivable: 1m
+```
+
+These concepts must not be collapsed into one ambiguous transaction model.
+
+---
+
+# 45. UX Priorities
+
+Prioritize:
+
+1. Financial correctness
+2. Simplicity
+3. Fast data entry
+4. Clear balances
+5. Clear debt direction
+6. Minimal visual complexity
+7. Persian RTL usability
+8. Good mobile/responsive behavior
+
+The user should be able to perform common actions quickly.
+
+Especially:
+
+* Add expense
+* Add income
+* Transfer
+* Record debt
+* Pay debt
+* Pay installment
+* Record Setar session
+
+---
+
+# 46. Final Definition of Done
+
+The MVP is considered complete when:
+
+* The application runs through Docker.
+* Frontend and backend communicate correctly.
+* PostgreSQL and Prisma are configured correctly.
+* Authentication works.
+* Users can manage their profile.
+* Users can create and manage bank accounts.
+* Users can create Toman funds.
+* Initial balances work correctly.
+* Transfers work correctly.
+* Negative balances are prevented.
+* Income and expenses work.
+* Categories work.
+* Split expenses work.
+* Counterparties work.
+* Connected users can exchange Debt Events.
+* External counterparties work.
+* Debt settlements work.
+* Installments work.
+* Overdue installments are identified.
+* Installment payment automatically creates the correct expense.
+* Gold wallet works.
+* USD wallet works.
+* Gold/USD are never valued in Toman.
+* Setar session cycles work.
+* Setar tuition payment automatically creates the correct expense.
+* Dashboard works.
+* Monthly statistics work.
+* Application is fully RTL.
+* UI is Persian.
+* Dates are displayed using Jalali/Shamsi calendar.
+* The UI is minimal and responsive.
+* No automated frontend/backend tests are added for this MVP.
+* No unrelated features are introduced.
+
+---
+
+# 47. First Action
+
+Before writing or modifying application code:
+
+1. Inspect the repository.
+2. Identify the current project state.
+3. Compare the existing structure with the architecture described here.
+4. Identify whether this is a new project or an existing codebase.
+5. Propose Phase 0 implementation steps.
+6. Do NOT start implementing future phases.
+
+After Phase 0 is approved/completed, continue phase by phase.

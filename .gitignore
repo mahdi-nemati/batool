@@ -1,0 +1,26 @@
+node_modules/
+dist/
+build/
+.next/
+out/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+*.tsbuildinfo
+
+# Prisma generated client (regenerated via `bun run db:generate`)
+packages/database/src/generated/
+
+# Machine-local tool state (regenerable)
+.codebase-memory/
+test-results/
+playwright-report/
+blob-report/
+*.tmp
+*.swp
+.vscode/
+.idea/

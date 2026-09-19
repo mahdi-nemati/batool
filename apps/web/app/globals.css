@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Vazirmatn", Tahoma, ui-sans-serif, system-ui, sans-serif;
+
+  --color-paper: #f7f5ef;
+  --color-panel: #fffdf8;
+  --color-ink: #24312f;
+  --color-muted: #6a7773;
+  --color-line: #e4e0d5;
+  --color-accent: #1d7468;
+  --color-accent-dark: #14584f;
+  --color-danger: #a33a3a;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+
+  body {
+    font-variant-numeric: tabular-nums;
+  }
+}

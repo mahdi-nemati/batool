@@ -1,0 +1,9 @@
+node_modules/
+dist/
+build/
+.next/
+coverage/
+bun.lock
+bun.lockb
+*.tsbuildinfo
+packages/database/src/generated/

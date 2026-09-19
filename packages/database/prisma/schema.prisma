@@ -1,0 +1,468 @@
+// Prisma schema for Batool.
+//
+// Phase 2 (Financial Core): explicit asset models + a first-class Transfer + a
+// derived-balance ledger. Balances are NEVER stored as mutable columns; they are
+// aggregated from AssetMovement rows (signed deltas). Income/expense, categories,
+// debts, installments and Setar live in their own explicit models below.
+//
+// Money representation:
+//   * Toman  -> integer, stored as BigInt (signed when it is a ledger delta).
+//   * Gold   -> grams, Decimal @db.Decimal(24, 8).
+//   * USD    -> dollars, Decimal @db.Decimal(24, 8).
+//   * No Rial exists anywhere. Gold/USD are never converted to / valued in Toman.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum AssetKind {
+  BANK
+  FUND
+  GOLD
+  USD
+}
+
+enum MovementReason {
+  OPENING
+  TRANSFER
+  INCOME
+  EXPENSE
+  SETTLEMENT
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+// --- Phase 4: counterparties, connections, debt ledger ---------------------
+
+enum CounterpartyKind {
+  EXTERNAL
+  USER
+}
+
+// Obligation direction from the OWNER's point of view.
+enum DebtDirection {
+  OWES_ME // counterparty owes the owner (receivable)
+  I_OWE // owner owes the counterparty (payable)
+}
+
+enum DebtEntryKind {
+  OBLIGATION // creates/increases an obligation (incl. split-expense receivables)
+  SETTLEMENT // repays an outstanding obligation (may move Toman cash)
+}
+
+model User {
+  id                   String                  @id @default(cuid())
+  // Stable, non-editable identity used later for invitations / counterparties.
+  username             String                  @unique
+  email                String                  @unique
+  passwordHash         String
+  nickname             String
+  role                 Role                    @default(USER)
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  sessions             AuthenticationSession[]
+  bankAccounts         BankAccount[]
+  funds                Fund[]
+  goldWallet           GoldWallet?
+  usdWallet            UsdWallet?
+  transfers            Transfer[]
+  assetMovements       AssetMovement[]
+  transactions         FinancialTransaction[]
+  counterpartiesOwned  Counterparty[]          @relation("CounterpartyOwner")
+  counterpartiesLinked Counterparty[]          @relation("CounterpartyLinkedUser")
+  connectionsFrom      UserConnection[]        @relation("ConnectionA")
+  connectionsTo        UserConnection[]        @relation("ConnectionB")
+  debtEvents           DebtEvent[]             @relation("DebtEventOwner")
+  installments         Installment[]
+  setarProfile         SetarProfile?
+}
+
+model AuthenticationSession {
+  id        String    @id @default(cuid())
+  userId    String
+  // SHA-256 hash of the opaque bearer token; the raw token is never stored.
+  tokenHash String    @unique
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+}
+
+model BankAccount {
+  id        String          @id @default(cuid())
+  userId    String
+  name      String
+  isActive  Boolean         @default(true)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movements AssetMovement[]
+
+  @@index([userId, isActive])
+}
+
+model Fund {
+  id        String          @id @default(cuid())
+  userId    String
+  name      String
+  // Optional savings target. This is a goal, not a balance.
+  goalToman BigInt?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movements AssetMovement[]
+
+  @@index([userId])
+}
+
+// Exactly one per user, created automatically, not deletable by the user.
+model GoldWallet {
+  id        String          @id @default(cuid())
+  userId    String          @unique
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movements AssetMovement[]
+}
+
+// Exactly one per user, created automatically, not deletable by the user.
+model UsdWallet {
+  id        String          @id @default(cuid())
+  userId    String          @unique
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movements AssetMovement[]
+}
+
+// A single logical movement of value between two assets owned by the same user.
+// First-class by design: it is NOT an income/expense transaction.
+model Transfer {
+  id              String          @id @default(cuid())
+  userId          String
+  sourceKind      AssetKind
+  sourceId        String
+  destinationKind AssetKind
+  destinationId   String
+  // Toman side: the amount moved for Toman routes, or the Toman paid/received
+  // for Gold/USD routes. Stored for the ledger and history only — it is never
+  // used to compute the Gold/USD wallet's value.
+  amountToman     BigInt?
+  amountGram      Decimal?        @db.Decimal(24, 8)
+  amountUsd       Decimal?        @db.Decimal(24, 8)
+  description     String
+  occurredAt      DateTime        @default(now())
+  createdAt       DateTime        @default(now())
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movements       AssetMovement[]
+
+  @@index([userId, occurredAt])
+}
+
+// One signed row per asset leg of a financial event. Balance of an asset is the
+// sum of its movements in its native currency. This is the source of truth.
+model AssetMovement {
+  id            String                @id @default(cuid())
+  userId        String
+  assetKind     AssetKind
+  assetId       String
+  reason        MovementReason
+  transferId    String?
+  transactionId String?
+  debtEventId   String?
+  // Exactly one of these is set per row (the asset's native currency). Signed:
+  // positive increases the balance, negative decreases it.
+  amountToman   BigInt?
+  amountGram    Decimal?              @db.Decimal(24, 8)
+  amountUsd     Decimal?              @db.Decimal(24, 8)
+  occurredAt    DateTime              @default(now())
+  createdAt     DateTime              @default(now())
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transfer      Transfer?             @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  transaction   FinancialTransaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  debtEvent     DebtEvent?            @relation(fields: [debtEventId], references: [id], onDelete: Cascade)
+  bankAccount   BankAccount?          @relation(fields: [bankAccountId], references: [id])
+  bankAccountId String?
+  fund          Fund?                 @relation(fields: [fundId], references: [id])
+  fundId        String?
+  goldWallet    GoldWallet?           @relation(fields: [goldWalletId], references: [id])
+  goldWalletId  String?
+  usdWallet     UsdWallet?            @relation(fields: [usdWalletId], references: [id])
+  usdWalletId   String?
+
+  @@index([userId, assetKind, assetId])
+  @@index([transferId])
+  @@index([transactionId])
+  @@index([debtEventId])
+}
+
+// ---- Phase 3: Categories + Income/Expense transactions ----------------------
+
+// Categories are GLOBAL, ADMIN-managed records (not duplicated per user).
+// Soft-deleted (isActive=false) so historical transactions keep resolving them,
+// while the category can no longer be selected for new transactions.
+model Category {
+  id           String                 @id @default(cuid())
+  name         String
+  type         CategoryType
+  isActive     Boolean                @default(true)
+  isSystem     Boolean                @default(false)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  transactions FinancialTransaction[]
+
+  @@unique([name, type])
+  @@index([type, isActive])
+}
+
+// A distinct financial event: INCOME or EXPENSE. Deliberately NOT a Transfer and
+// NOT the generic catch-all table. Its cash effect is one signed AssetMovement.
+model FinancialTransaction {
+  id                 String              @id @default(cuid())
+  userId             String
+  type               TransactionType
+  // Total Toman cash effect on the source asset. For a split expense this is the
+  // FULL amount paid; the user's personal share lives in shares (isOwner).
+  amountToman        BigInt
+  categoryId         String
+  // Source asset: BANK or FUND only (GOLD/USD rejected at the service layer).
+  assetKind          AssetKind
+  assetId            String
+  description        String?
+  occurredAt         DateTime            @default(now())
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category           Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  movements          AssetMovement[]
+  shares             TransactionShare[]
+  installmentPayment InstallmentPayment?
+  setarTuitionPayment SetarTuitionPayment?
+
+  @@index([userId, occurredAt])
+  @@index([userId, type])
+  @@index([categoryId])
+}
+
+// Split-expense shares. Exactly one isOwner row (the user's own share) plus any
+// number of participant rows. Sum of all shares == the expense total. Persisting
+// the participants here is the Phase-4 debt foundation (no debt logic yet).
+model TransactionShare {
+  id            String               @id @default(cuid())
+  transactionId String
+  isOwner       Boolean
+  // Participant display name (linked to a Counterparty in Phase 4); null for owner.
+  label         String?
+  amountToman   BigInt
+  createdAt     DateTime             @default(now())
+  transaction   FinancialTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  debtEvents    DebtEvent[]
+
+  @@index([transactionId])
+}
+
+// A person the owner has financial dealings with. EXTERNAL = local-only contact
+// (owner manages both sides). USER = a connected registered Batool user (referenced
+// by stable user id, never by the mutable username string). Belongs to ownerUserId
+// only; another user's private data is never exposed. Soft-archived so historical
+// debt events keep resolving the counterparty.
+model Counterparty {
+  id           String           @id @default(cuid())
+  ownerUserId  String
+  kind         CounterpartyKind
+  name         String
+  linkedUserId String?
+  archived     Boolean          @default(false)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  owner        User             @relation("CounterpartyOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  linkedUser   User?            @relation("CounterpartyLinkedUser", fields: [linkedUserId], references: [id], onDelete: Restrict)
+  debtEvents   DebtEvent[]
+
+  @@unique([ownerUserId, linkedUserId])
+  @@index([ownerUserId, archived])
+}
+
+// Symmetric link between two registered users, stored as an unordered pair
+// (aId < bId) so it is represented identically for both sides. No accept/reject
+// workflow in MVP. Enforces no self-connection + no duplicates via unique(aId,bId).
+model UserConnection {
+  id        String   @id @default(cuid())
+  aId       String
+  bId       String
+  createdAt DateTime @default(now())
+  userA     User     @relation("ConnectionA", fields: [aId], references: [id], onDelete: Cascade)
+  userB     User     @relation("ConnectionB", fields: [bId], references: [id], onDelete: Cascade)
+
+  @@unique([aId, bId])
+  @@index([bId])
+}
+
+// Auditable debt ledger. The current net balance of a relationship is DERIVED
+// from these events — never stored as a mutable amount. A SETTLEMENT entry also
+// produces one signed AssetMovement (Toman cash) linked via movements.
+model DebtEvent {
+  id             String            @id @default(cuid())
+  ownerUserId    String
+  counterpartyId String
+  kind           DebtEntryKind
+  direction      DebtDirection
+  // Always a positive magnitude; sign is applied when deriving net (documented).
+  amountToman    BigInt
+  description    String?
+  // Source participant share (split-expense receivable). Preserves history linkage.
+  sourceShareId  String?
+  // Asset that the settlement cash moved through (SETTLEMENT only, BANK/FUND only).
+  assetKind      AssetKind?
+  assetId        String?
+  occurredAt     DateTime          @default(now())
+  createdAt      DateTime          @default(now())
+  owner          User              @relation("DebtEventOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  counterparty   Counterparty      @relation(fields: [counterpartyId], references: [id], onDelete: Restrict)
+  sourceShare    TransactionShare? @relation(fields: [sourceShareId], references: [id], onDelete: Restrict)
+  movements      AssetMovement[]
+
+  @@index([ownerUserId, occurredAt])
+  @@index([counterpartyId])
+  @@index([sourceShareId])
+}
+
+// ---- Phase 5: recurring monthly installments --------------------------------
+
+// A recurring payment OBLIGATION. Creating one never creates an Expense — the
+// obligation is separate from the actual payment. paidCount/remaining/status and
+// the next due date are all DERIVED from its InstallmentPayment rows; only the
+// contract facts (amount, count, due day, start) and an archive flag are stored.
+model Installment {
+  id            String               @id @default(cuid())
+  userId        String
+  name          String
+  description   String?
+  // Fixed per-installment Toman amount (server source of truth for payment).
+  amountToman   BigInt
+  // Total number of scheduled installments (fixed-count model).
+  totalCount    Int
+  // Day of month (1..31). Months lacking that day clamp to the month's last day.
+  dueDayOfMonth Int
+  // First occurrence's month anchor (calendar month of the 1st installment).
+  startDate     DateTime
+  archived      Boolean              @default(false)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments      InstallmentPayment[]
+
+  @@index([userId, archived])
+}
+
+// One paid occurrence. occurrenceNo is 1-based. The @@unique(installmentId,
+// occurrenceNo) is the concurrency guard that makes double-paying an occurrence
+// impossible. financialTransactionId (unique) links exactly one generated Expense.
+model InstallmentPayment {
+  id                     String               @id @default(cuid())
+  installmentId          String
+  occurrenceNo           Int
+  // The server-computed amount actually paid (snapshot for immutable history).
+  amountToman            BigInt
+  // Resolved scheduled due date for this occurrence (immutable historical value).
+  dueDate                DateTime
+  paidAt                 DateTime             @default(now())
+  financialTransactionId String               @unique
+  description            String?
+  createdAt              DateTime             @default(now())
+  installment            Installment          @relation(fields: [installmentId], references: [id], onDelete: Cascade)
+  transaction            FinancialTransaction @relation(fields: [financialTransactionId], references: [id], onDelete: Restrict)
+
+  @@unique([installmentId, occurrenceNo])
+  @@index([installmentId])
+}
+
+// ---- Phase 7: Setar lessons & tuition ---------------------------------------
+
+// One profile per user holding the CURRENT tuition configuration. Only the
+// current tuition amount, an archive flag and timestamps are stored, plus the
+// fixed sessions-per-payment constant lives in application code (MVP = 4).
+// Progress/status is NEVER stored: it is always derived from SetarSession +
+// SetarTuitionPayment rows below.
+model SetarProfile {
+  id                 String                @id @default(cuid())
+  userId             String
+  // Current tuition in Toman. This is the SERVER source of truth for the next
+  // payment — the client never sends a payment amount. Every paid cycle snapshots
+  // its own amount, so changing this never rewrites history.
+  tuitionAmountToman BigInt
+  archived           Boolean               @default(false)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  user               User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions           SetarSession[]
+  payments           SetarTuitionPayment[]
+
+  @@unique([userId])
+  @@index([userId, archived])
+}
+
+// One completed lesson. sessionNo is a 1-based, never-reused global sequence per
+// profile, so the owning 4-session cycle is deterministic:
+//   cycleNo = floor((sessionNo - 1) / 4) + 1   (cycle 1 = sessions 1-4, ...)
+// A session is NEVER an Expense — it only advances the cycle progress. Recording
+// an extra session while a previous cycle is unpaid is allowed; the unpaid cycle
+// keeps its identity (see the Setar service cycle rules).
+model SetarSession {
+  id             String       @id @default(cuid())
+  setarProfileId String
+  sessionNo      Int
+  occurredAt     DateTime     @default(now())
+  description    String?
+  createdAt      DateTime     @default(now())
+  profile        SetarProfile @relation(fields: [setarProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([setarProfileId, sessionNo])
+  @@index([setarProfileId, occurredAt])
+}
+
+// A historical tuition payment. cycleNo names the paid 4-session cycle and is
+// UNIQUE per profile — the database-level guard that makes paying the same cycle
+// twice impossible. amountToman is an immutable snapshot of what was actually
+// paid. Each payment creates exactly one FinancialTransaction (EXPENSE, Setar
+// category) and one signed AssetMovement in the same atomic transaction.
+model SetarTuitionPayment {
+  id                     String               @id @default(cuid())
+  setarProfileId         String
+  cycleNo                Int
+  // Amount actually paid at the time (snapshot — current tuition may change later).
+  amountToman            BigInt
+  paidAt                 DateTime             @default(now())
+  description            String?
+  financialTransactionId String               @unique
+  createdAt              DateTime             @default(now())
+  profile                SetarProfile         @relation(fields: [setarProfileId], references: [id], onDelete: Cascade)
+  transaction            FinancialTransaction @relation(fields: [financialTransactionId], references: [id], onDelete: Restrict)
+
+  @@unique([setarProfileId, cycleNo])
+  @@index([setarProfileId])
+}

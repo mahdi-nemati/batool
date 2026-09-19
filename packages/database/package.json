@@ -1,0 +1,29 @@
+{
+  "name": "@batool/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "db:generate": "bunx --bun prisma generate",
+    "db:migrate": "bunx --bun prisma migrate dev",
+    "db:deploy": "bunx --bun prisma migrate deploy",
+    "db:status": "bunx --bun prisma migrate status",
+    "db:reset": "bunx --bun prisma migrate reset",
+    "db:seed": "bunx --bun prisma db seed",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "prisma": {
+    "seed": "bun prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "prisma": "^6.19.0",
+    "typescript": "^5.7.2"
+  }
+}
