@@ -5,11 +5,13 @@ WORKDIR /app
 # Install workspace dependencies from manifests only (better layer caching).
 FROM base AS deps
 COPY package.json bunfig.toml ./
+COPY bun.lock ./
 COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
 COPY packages/config/package.json packages/config/
 COPY packages/types/package.json packages/types/
 COPY packages/database/package.json packages/database/
-RUN bun install --frozen-lockfile || bun install
+RUN bun install --frozen-lockfile
 
 FROM base AS runner
 ENV NODE_ENV=production
@@ -17,8 +19,7 @@ ENV PORT=4000
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate the Prisma client (schema has no models in Phase 0; still emits the
-# client engine + $queryRaw accessors used by the readiness probe).
+# Generate the Prisma client used by the API and migration command.
 RUN cd packages/database && bunx --bun prisma generate
 
 WORKDIR /app/apps/api

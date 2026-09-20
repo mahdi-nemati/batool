@@ -9,7 +9,6 @@ coverage/
 .env
 .env.*
 !.env.example
-bun.lock
 .codebase-memory/
 test-results/
 Dockerfile*

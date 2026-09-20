@@ -4,12 +4,13 @@ WORKDIR /app
 
 FROM base AS deps
 COPY package.json bunfig.toml ./
+COPY bun.lock ./
 COPY apps/web/package.json apps/web/
 COPY apps/api/package.json apps/api/
 COPY packages/config/package.json packages/config/
 COPY packages/types/package.json packages/types/
 COPY packages/database/package.json packages/database/
-RUN bun install --frozen-lockfile || bun install
+RUN bun install --frozen-lockfile
 
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules

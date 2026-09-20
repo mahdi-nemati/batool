@@ -255,6 +255,8 @@ export class DebtsService {
 
     return this.prisma.$transaction(async (tx) => {
       const cp = await this.assertActiveOwned(tx, userId, dto.counterpartyId);
+      // Serialize settlements for one relationship before deriving its net.
+      await tx.$queryRaw`SELECT id FROM "Counterparty" WHERE id = ${cp.id} FOR UPDATE`;
       const net = await this.netFor(tx, cp.id);
       if (net === 0n) {
         throw ApiError.nothingToSettle();

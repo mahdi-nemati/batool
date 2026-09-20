@@ -6,6 +6,7 @@ import { BankAccountsModule } from "./bank-accounts/bank-accounts.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { AuthGuard } from "./common/auth/auth.guard";
 import { CounterpartiesModule } from "./counterparties/counterparties.module";
+import { DashboardModule } from "./dashboard/dashboard.module";
 import { DebtsModule } from "./debts/debts.module";
 import { CsrfMiddleware } from "./common/auth/csrf.middleware";
 import { RolesGuard } from "./common/auth/roles.guard";
@@ -31,6 +32,7 @@ import { TransfersModule } from "./transfers/transfers.module";
     CategoriesModule,
     DebtsModule,
     CounterpartiesModule,
+    DashboardModule,
     InstallmentsModule,
     SetarModule,
     TransactionsModule,

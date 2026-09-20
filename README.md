@@ -5,13 +5,13 @@ A Persian, RTL personal asset & finance management app.
 
 Monorepo: **Bun workspaces** · **Next.js** (web) · **NestJS** (api) · **PostgreSQL + Prisma** (database) · **Docker Compose**.
 
-> Status: **Phases 0–6 complete.** Foundation + Authentication + Financial Core +
+> Status: **Phases 0–9 complete.** Foundation + Authentication + Financial Core +
 > Income/Expense/Categories + Counterparties & Debts + recurring monthly
 > Installments + Gold/USD trading are in place, plus the **Phase 7 Setar** module:
 > a fixed 4-session tuition cycle whose payments create a real Phase‑3 Expense +
 > ledger movement atomically (server-determined amount, immutable payment
 > snapshots, concurrency-safe via a per-profile lock + unique cycle constraint).
-> Dashboard/statistics arrive in a later phase.
+> The read-only dashboard and release-hardened Docker deployment are included.
 
 ## Structure
 
@@ -38,13 +38,14 @@ docker-compose.yml
 # 1. Install workspace dependencies
 bun install
 
-# 2. Start PostgreSQL (host port 5434)
-docker compose up -d postgres
-
-# 3. Environment files
+# 2. Environment files
+cp .env.example .env
 cp apps/api/.env.example apps/api/.env
 cp packages/database/.env.example packages/database/.env
 cp apps/web/.env.example apps/web/.env.local
+
+# 3. Start PostgreSQL (host port 5434)
+docker compose up -d postgres
 
 # 4. Generate the Prisma client + apply migrations
 bun run db:generate
@@ -80,6 +81,10 @@ bun run dev
 docker compose --profile app up --build
 ```
 
+The production-oriented container stack requires `POSTGRES_*`, `WEB_ORIGIN`,
+`NEXT_PUBLIC_API_ORIGIN`, and `API_SERVER_ORIGIN` in `.env`. The API container
+applies `prisma migrate deploy` before starting.
+
 ## Conventions & financial rules (locked for the MVP)
 
 - **Toman is the only Toman-currency unit** — no Rial, no conversion.
@@ -99,4 +104,4 @@ docker compose --profile app up --build
 Phase 0 (foundation) ✅ · Phase 1 (auth/users) ✅ · Phase 2 (financial core) ✅ ·
 Phase 3 (income/expense/categories) ✅ · Phase 4 (counterparties/debts) ✅ ·
 Phase 5 (installments) ✅ · Phase 6 (gold/USD) ✅ · Phase 7 (setar) ✅ ·
-Phase 8 (dashboard/statistics) · Phase 9 (polish).
+Phase 8 (dashboard/statistics) ✅ · Phase 9 (polish and release hardening) ✅.

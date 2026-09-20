@@ -5,3 +5,4 @@ export * from "./transactions";
 export * from "./debts";
 export * from "./installments";
 export * from "./setar";
+export * from "./dashboard";

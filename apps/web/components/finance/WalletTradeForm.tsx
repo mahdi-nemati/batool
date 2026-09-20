@@ -109,6 +109,7 @@ export function WalletTradeForm({ asset, accounts }: Props) {
           <button
             type="button"
             onClick={() => setSide("BUY")}
+            aria-pressed={side === "BUY"}
             className={`rounded-md px-3 py-1 ${side === "BUY" ? "bg-accent text-white" : "text-muted"}`}
           >
             خرید
@@ -116,6 +117,7 @@ export function WalletTradeForm({ asset, accounts }: Props) {
           <button
             type="button"
             onClick={() => setSide("SELL")}
+            aria-pressed={side === "SELL"}
             className={`rounded-md px-3 py-1 ${side === "SELL" ? "bg-accent text-white" : "text-muted"}`}
           >
             فروش

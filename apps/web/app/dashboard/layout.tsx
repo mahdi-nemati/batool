@@ -20,12 +20,12 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen">
-      <header className="flex items-center justify-between gap-4 border-b border-line bg-panel px-5 py-3">
-        <div className="flex items-center gap-6">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-panel px-4 py-3 sm:px-5">
+        <div className="flex min-w-0 items-center gap-4">
           <Link href="/dashboard" className="text-xl font-bold text-accent-dark">
             بتول
           </Link>
-          <nav className="flex items-center gap-4 text-sm">
+          <nav className="flex max-w-full items-center gap-4 overflow-x-auto text-sm whitespace-nowrap">
             <Link href="/dashboard" className="text-muted hover:text-ink">
               داشبورد
             </Link>
@@ -62,7 +62,7 @@ export default async function DashboardLayout({
           <LogoutButton />
         </div>
       </header>
-      <main className="mx-auto max-w-3xl p-5">{children}</main>
+      <main className="mx-auto max-w-6xl p-5">{children}</main>
     </div>
   );
 }
