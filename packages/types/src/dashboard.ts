@@ -33,6 +33,59 @@ export interface DashboardInstallmentDto {
   amountToman: number;
   nextDueDate: string;
   status: "UPCOMING" | "DUE" | "OVERDUE";
+  remainingDays: number;
+}
+
+export interface DashboardCategoryDto {
+  categoryId: string;
+  name: string;
+  amountToman: number;
+  percentage: number;
+}
+
+export interface DashboardStatisticsDto {
+  month: DashboardMonth;
+  monthOptions: DashboardMonthOption[];
+  monthly: {
+    incomeToman: number;
+    expenseToman: number;
+    netCashFlowToman: number;
+    previousIncomeToman: number;
+    previousExpenseToman: number;
+    previousNetCashFlowToman: number;
+  };
+  expenseCategories: DashboardCategoryDto[];
+  incomeCategories: DashboardCategoryDto[];
+  trend: Array<{
+    month: string;
+    label: string;
+    incomeToman: number;
+    expenseToman: number;
+    netCashFlowToman: number;
+  }>;
+  debtSummary: DebtSummaryDto;
+  installments: {
+    active: number;
+    upcoming: number;
+    overdue: number;
+    paid: number;
+    remaining: number;
+  };
+  assets: {
+    banks: DashboardBalanceDto[];
+    funds: DashboardBalanceDto[];
+    totalToman: number;
+    goldGram: string;
+    usd: string;
+  };
+  setar: {
+    totalSessions: number;
+    paidCycles: number;
+    currentCycleNo: number;
+    sessionsInCurrentCycle: number;
+    sessionsRemaining: number;
+    tuitionPayments: number;
+  };
 }
 
 export interface DashboardSetarDto {

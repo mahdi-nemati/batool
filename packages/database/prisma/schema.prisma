@@ -336,6 +336,9 @@ model DebtEvent {
   description    String?
   // Source participant share (split-expense receivable). Preserves history linkage.
   sourceShareId  String?
+  // For registered-user counterparties, the other owner's inverse view is a
+  // linked projection event. Only the originating event owns a cash movement.
+  mirroredFromId String? @unique
   // Asset that the settlement cash moved through (SETTLEMENT only, BANK/FUND only).
   assetKind      AssetKind?
   assetId        String?
@@ -344,11 +347,14 @@ model DebtEvent {
   owner          User              @relation("DebtEventOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
   counterparty   Counterparty      @relation(fields: [counterpartyId], references: [id], onDelete: Restrict)
   sourceShare    TransactionShare? @relation(fields: [sourceShareId], references: [id], onDelete: Restrict)
+  mirroredFrom   DebtEvent?        @relation("DebtEventMirror", fields: [mirroredFromId], references: [id], onDelete: Cascade)
+  mirrors        DebtEvent[]       @relation("DebtEventMirror")
   movements      AssetMovement[]
 
   @@index([ownerUserId, occurredAt])
   @@index([counterpartyId])
   @@index([sourceShareId])
+  @@index([mirroredFromId])
 }
 
 // ---- Phase 5: recurring monthly installments --------------------------------

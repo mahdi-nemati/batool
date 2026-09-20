@@ -6,6 +6,7 @@ import {
   type DashboardInstallmentDto,
   type DashboardMonth,
   type DashboardMonthOption,
+  type DashboardStatisticsDto,
   type DashboardSummaryDto,
   type FinancialTransactionDto,
 } from "@batool/types";
@@ -167,7 +168,7 @@ export class DashboardService {
       this.prisma.financialTransaction.findMany({
         where: { userId },
         orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
-        take: 8,
+        take: 5,
         include: { category: true, shares: true },
       }),
       this.debts.summary(userId),
@@ -264,6 +265,15 @@ export class DashboardService {
         installment.dueDayOfMonth,
         paidCount + 1,
       );
+      const today = new Date();
+      const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+      const dueUtc = Date.UTC(
+        nextDueDate.getUTCFullYear(),
+        nextDueDate.getUTCMonth(),
+        nextDueDate.getUTCDate(),
+      );
+      const remainingDays = Math.ceil((dueUtc - todayUtc) / 86400000);
+      if (remainingDays > 5) return [];
       return [
         {
           id: installment.id,
@@ -271,6 +281,7 @@ export class DashboardService {
           amountToman: Number(installment.amountToman),
           nextDueDate: nextDueDate.toISOString(),
           status: occurrenceStatus(nextDueDate),
+          remainingDays,
         },
       ];
     });
@@ -301,6 +312,135 @@ export class DashboardService {
       currentCycleNo: payments + 1,
       sessionsInCurrentCycle,
       sessionsRemaining: SESSIONS_PER_PAYMENT - sessionsInCurrentCycle,
+    };
+  }
+
+  async statistics(userId: string, rawMonth?: string): Promise<DashboardStatisticsDto> {
+    const resolved = resolveMonth(rawMonth);
+    const month = monthView(resolved.year, resolved.month);
+    const monthValues = Array.from({ length: 7 }, (_, index) => {
+      const value = shiftMonth(resolved.year, resolved.month, index - 6);
+      return { ...value, view: monthView(value.year, value.month) };
+    });
+    const rowsByMonth = await Promise.all(
+      monthValues.map((value) =>
+        this.prisma.financialTransaction.groupBy({
+          by: ["type", "categoryId"],
+          where: {
+            userId,
+            occurredAt: { gte: new Date(value.view.start), lt: new Date(value.view.end) },
+          },
+          _sum: { amountToman: true },
+        }),
+      ),
+    );
+    const allRows = rowsByMonth.flat();
+    const categories = await this.prisma.category.findMany({
+      where: { id: { in: [...new Set(allRows.map((row) => row.categoryId))] } },
+    });
+    const names = new Map(categories.map((category) => [category.id, category.name]));
+    const totals = (rows: (typeof rowsByMonth)[number]) => {
+      const incomeToman = rows
+        .filter((row) => row.type === "INCOME")
+        .reduce((sum, row) => sum + Number(row._sum.amountToman ?? 0n), 0);
+      const expenseToman = rows
+        .filter((row) => row.type === "EXPENSE")
+        .reduce((sum, row) => sum + Number(row._sum.amountToman ?? 0n), 0);
+      return { incomeToman, expenseToman, netCashFlowToman: incomeToman - expenseToman };
+    };
+    const breakdown = (rows: (typeof rowsByMonth)[number], type: "INCOME" | "EXPENSE") => {
+      const values = rows
+        .filter((row) => row.type === type)
+        .map((row) => ({
+          categoryId: row.categoryId,
+          name: names.get(row.categoryId) ?? "دسته‌بندی حذف‌شده",
+          amountToman: Number(row._sum.amountToman ?? 0n),
+          percentage: 0,
+        }));
+      const total = values.reduce((sum, value) => sum + value.amountToman, 0);
+      for (const value of values) {
+        value.percentage = total === 0 ? 0 : Math.round((value.amountToman / total) * 10000) / 100;
+      }
+      return values.sort((a, b) => b.amountToman - a.amountToman);
+    };
+    const currentRows = rowsByMonth[6] ?? [];
+    const previousRows = rowsByMonth[5] ?? [];
+    const current = totals(currentRows);
+    const previous = totals(previousRows);
+    const summary = await this.summary(userId, rawMonth);
+    const [installments, profile] = await Promise.all([
+      this.prisma.installment.findMany({ where: { userId, archived: false } }),
+      this.prisma.setarProfile.findUnique({ where: { userId } }),
+    ]);
+    const paymentCounts = await this.prisma.installmentPayment.groupBy({
+      by: ["installmentId"],
+      where: { installment: { userId } },
+      _count: { _all: true },
+    });
+    const paidMap = new Map(paymentCounts.map((row) => [row.installmentId, row._count._all]));
+    let upcoming = 0;
+    let overdue = 0;
+    let remaining = 0;
+    for (const installment of installments) {
+      const paid = paidMap.get(installment.id) ?? 0;
+      remaining += Math.max(installment.totalCount - paid, 0);
+      if (paid < installment.totalCount) {
+        const status = occurrenceStatus(
+          dueDateForOccurrence(installment.startDate, installment.dueDayOfMonth, paid + 1),
+        );
+        if (status === "OVERDUE") overdue += 1;
+        else upcoming += 1;
+      }
+    }
+    const [sessions, tuitionPayments] = profile
+      ? await Promise.all([
+          this.prisma.setarSession.count({ where: { setarProfileId: profile.id } }),
+          this.prisma.setarTuitionPayment.count({ where: { setarProfileId: profile.id } }),
+        ])
+      : [0, 0];
+    const sessionsInCurrentCycle = Math.min(
+      Math.max(sessions - tuitionPayments * SESSIONS_PER_PAYMENT, 0),
+      SESSIONS_PER_PAYMENT,
+    );
+    return {
+      month,
+      monthOptions: monthOptions(resolved.year, resolved.month),
+      monthly: {
+        ...current,
+        previousIncomeToman: previous.incomeToman,
+        previousExpenseToman: previous.expenseToman,
+        previousNetCashFlowToman: previous.netCashFlowToman,
+      },
+      expenseCategories: breakdown(currentRows, "EXPENSE"),
+      incomeCategories: breakdown(currentRows, "INCOME"),
+      trend: monthValues.map((value, index) => ({
+        month: value.view.key,
+        label: value.view.label,
+        ...totals(rowsByMonth[index] ?? []),
+      })),
+      debtSummary: summary.debtSummary,
+      installments: {
+        active: installments.length,
+        upcoming,
+        overdue,
+        paid: paymentCounts.reduce((sum, row) => sum + row._count._all, 0),
+        remaining,
+      },
+      assets: {
+        banks: summary.balances.banks,
+        funds: summary.balances.funds,
+        totalToman: summary.balances.totalToman,
+        goldGram: summary.quantities.goldGram,
+        usd: summary.quantities.usd,
+      },
+      setar: {
+        totalSessions: sessions,
+        paidCycles: tuitionPayments,
+        currentCycleNo: tuitionPayments + 1,
+        sessionsInCurrentCycle,
+        sessionsRemaining: SESSIONS_PER_PAYMENT - sessionsInCurrentCycle,
+        tuitionPayments,
+      },
     };
   }
 

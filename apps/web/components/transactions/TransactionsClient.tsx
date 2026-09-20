@@ -21,6 +21,7 @@ import {
 import { ApiClientError } from "@/lib/api/client";
 import { formatTomanUnit } from "@/lib/formatting/persian";
 import { formatJalaliDate } from "@/lib/formatting/jalali";
+import { MoneyInput } from "@/components/ui/MoneyInput";
 
 const inputClass =
   "w-full rounded-lg border border-line bg-white px-3 py-2 text-ink outline-none focus:border-accent";
@@ -184,7 +185,10 @@ function IncomeForm({
   const [amount, setAmount] = useState("");
   const [desc, setDesc] = useState("");
   const [busy, setBusy] = useState(false);
-  const endpoints = useMemo(() => toEndPoints(data), [data]);
+  const endpoints = useMemo(
+    () => data.accounts.map((a) => ({ value: `BANK|${a.id}`, label: `حساب: ${a.name}` })),
+    [data.accounts],
+  );
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -194,7 +198,7 @@ function IncomeForm({
     try {
       const a = parseAsset(asset);
       await createIncome({
-        amountToman: Number(amount),
+        amountToman: amount,
         categoryId: cat,
         assetKind: a.kind,
         assetId: a.id,
@@ -252,14 +256,7 @@ function IncomeForm({
       </div>
       <div>
         <label className={labelClass}>مبلغ (تومان)</label>
-        <input
-          className={inputClass}
-          dir="ltr"
-          inputMode="numeric"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
-          required
-        />
+        <MoneyInput value={amount} onChange={setAmount} required className={inputClass} />
       </div>
       <div>
         <label className={labelClass}>توضیح (اختیاری)</label>
@@ -302,7 +299,10 @@ function ExpenseForm({
   const [split, setSplit] = useState(false);
   const [shares, setShares] = useState<PShare[]>([{ label: "", amount: "", party: "" }]);
   const [busy, setBusy] = useState(false);
-  const endpoints = useMemo(() => toEndPoints(data), [data]);
+  const endpoints = useMemo(
+    () => data.accounts.map((a) => ({ value: `BANK|${a.id}`, label: `حساب: ${a.name}` })),
+    [data.accounts],
+  );
 
   const total = Number(amount) || 0;
   const participantsSum = split ? shares.reduce((s, x) => s + (Number(x.amount) || 0), 0) : 0;
@@ -321,12 +321,12 @@ function ExpenseForm({
             .filter((s) => s.label.trim() && Number(s.amount) > 0)
             .map((s) => ({
               label: s.label.trim(),
-              amountToman: Number(s.amount),
+              amountToman: s.amount,
               ...(s.party ? { counterpartyId: s.party } : {}),
             }))
         : undefined;
       await createExpense({
-        amountToman: total,
+        amountToman: amount,
         categoryId: cat,
         assetKind: a.kind,
         assetId: a.id,
@@ -387,14 +387,7 @@ function ExpenseForm({
       </div>
       <div>
         <label className={labelClass}>مبلغ کل (تومان)</label>
-        <input
-          className={inputClass}
-          dir="ltr"
-          inputMode="numeric"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
-          required
-        />
+        <MoneyInput value={amount} onChange={setAmount} required className={inputClass} />
       </div>
 
       <label className="flex items-center gap-2 text-sm">
@@ -417,18 +410,12 @@ function ExpenseForm({
                     setShares(shares.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))
                   }
                 />
-                <input
+                <MoneyInput
                   className={`${inputClass} max-w-32`}
-                  dir="ltr"
-                  inputMode="numeric"
                   placeholder="سهم"
                   value={s.amount}
-                  onChange={(e) =>
-                    setShares(
-                      shares.map((x, j) =>
-                        j === i ? { ...x, amount: e.target.value.replace(/[^\d]/g, "") } : x,
-                      ),
-                    )
+                  onChange={(value) =>
+                    setShares(shares.map((x, j) => (j === i ? { ...x, amount: value } : x)))
                   }
                 />
                 <button

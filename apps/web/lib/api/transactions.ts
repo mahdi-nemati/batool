@@ -10,12 +10,12 @@ const unwrap = <T>(p: Promise<ApiResponse<T>>) => p.then((r) => r.data);
 
 export interface ParticipantShareInput {
   label: string;
-  amountToman: number;
+  amountToman: number | string;
 }
 
 export interface CreateTransactionInput {
   type: TransactionType;
-  amountToman: number;
+  amountToman: number | string;
   categoryId: string;
   assetKind: AssetKind;
   assetId: string;

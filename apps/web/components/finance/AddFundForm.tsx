@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiClientError } from "@/lib/api/client";
 import { createFund } from "@/lib/api/finance";
+import { MoneyInput } from "@/components/ui/MoneyInput";
 
 const inputClass =
   "w-full rounded-lg border border-line bg-white px-3 py-2 text-ink outline-none focus:border-accent";
@@ -21,7 +22,7 @@ export function AddFundForm() {
     setError(null);
     setBusy(true);
     try {
-      await createFund({ name, ...(goal.length > 0 ? { goalToman: Number(goal) } : {}) });
+      await createFund({ name, ...(goal.length > 0 ? { goalToman: goal } : {}) });
       setName("");
       setGoal("");
       router.refresh();
@@ -60,14 +61,7 @@ export function AddFundForm() {
         <label className={labelClass} htmlFor="fund-goal">
           هدف (اختیاری، تومان)
         </label>
-        <input
-          id="fund-goal"
-          dir="ltr"
-          inputMode="numeric"
-          value={goal}
-          onChange={(e) => setGoal(e.target.value.replace(/[^\d]/g, ""))}
-          className={inputClass}
-        />
+        <MoneyInput id="fund-goal" value={goal} onChange={setGoal} className={inputClass} />
       </div>
       <button
         type="submit"

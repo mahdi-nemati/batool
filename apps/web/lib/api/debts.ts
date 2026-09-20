@@ -15,14 +15,14 @@ const unwrap = <T>(p: Promise<ApiResponse<T>>) => p.then((r) => r.data);
 export interface CreateDebtEventInput {
   counterpartyId: string;
   direction: DebtDirection;
-  amountToman: number;
+  amountToman: number | string;
   description?: string;
   occurredAt?: string;
 }
 
 export interface SettleInput {
   counterpartyId: string;
-  amountToman: number;
+  amountToman: number | string;
   assetKind: AssetKind;
   assetId: string;
   description?: string;

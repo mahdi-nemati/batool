@@ -5,6 +5,7 @@ import { useState } from "react";
 import { AssetKind } from "@batool/types";
 import { ApiClientError } from "@/lib/api/client";
 import { createTransfer } from "@/lib/api/finance";
+import { MoneyInput } from "@/components/ui/MoneyInput";
 
 const inputClass =
   "w-full rounded-lg border border-line bg-white px-3 py-2 text-ink outline-none focus:border-accent";
@@ -81,7 +82,7 @@ export function WalletTradeForm({ asset, accounts }: Props) {
               destinationKind: AssetKind.BANK,
               destinationId: bank,
             }),
-        amountToman: Number(toman),
+        amountToman: toman,
         ...(asset === AssetKind.GOLD ? { amountGram: quantity } : { amountUsd: quantity }),
       });
       setQuantity("");
@@ -175,14 +176,7 @@ export function WalletTradeForm({ asset, accounts }: Props) {
         <label className={labelClass} htmlFor="wt-toman">
           مبلغ (تومان)
         </label>
-        <input
-          id="wt-toman"
-          dir="ltr"
-          inputMode="numeric"
-          value={toman}
-          onChange={(e) => setToman(e.target.value.replace(/[^\d]/g, ""))}
-          className={inputClass}
-        />
+        <MoneyInput id="wt-toman" value={toman} onChange={setToman} className={inputClass} />
         <p className="mt-1 text-xs text-muted">
           این مبلغ فقط در تاریخچه ثبت می‌شود و برای ارزش‌گذاری {m.title} به کار نمی‌رود.
         </p>

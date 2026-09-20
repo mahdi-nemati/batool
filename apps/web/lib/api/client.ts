@@ -48,6 +48,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   const response = await fetch(`${baseUrl}${path}`, init);
 
+  const isMutation = method !== "GET";
   if (!response.ok) {
     let code = "INTERNAL_ERROR";
     let message = "خطایی رخ داد";
@@ -60,11 +61,21 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     } catch {
       // Non-JSON error body (e.g. proxy) — keep the generic message.
     }
+    if (isMutation && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("batool:toast", { detail: { message, tone: "error" } }));
+    }
     throw new ApiClientError(response.status, code, message, fields);
   }
 
   if (response.status === 204) {
     return undefined as T;
+  }
+  if (isMutation && typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("batool:toast", {
+        detail: { message: "عملیات با موفقیت انجام شد", tone: "success" },
+      }),
+    );
   }
   return (await response.json()) as T;
 }

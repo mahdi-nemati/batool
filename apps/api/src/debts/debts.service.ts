@@ -40,6 +40,10 @@ export function viewFromNet(net: bigint): { direction: DV; outstanding: bigint }
   return { direction: DebtViewDirection.SETTLED, outstanding: 0n };
 }
 
+function inverseDirection(direction: DebtDirection): DebtDirection {
+  return direction === DebtDirection.OWES_ME ? DebtDirection.I_OWE : DebtDirection.OWES_ME;
+}
+
 @Injectable()
 export class DebtsService {
   constructor(
@@ -161,19 +165,22 @@ export class DebtsService {
     const amount = parseToman(dto.amountToman);
     const occurredAt = this.parseOccurredAt(dto.occurredAt);
     const description = this.cleanDescription(dto.description);
-    await this.assertActiveOwned(this.prisma, userId, dto.counterpartyId);
-    const created = await this.prisma.debtEvent.create({
-      data: {
-        ownerUserId: userId,
-        counterpartyId: dto.counterpartyId,
-        kind: DebtEntryKind.OBLIGATION,
-        direction: dto.direction,
-        amountToman: amount,
-        occurredAt,
-        ...(description !== undefined ? { description } : {}),
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const cp = await this.assertActiveOwned(tx, userId, dto.counterpartyId);
+      const created = await tx.debtEvent.create({
+        data: {
+          ownerUserId: userId,
+          counterpartyId: dto.counterpartyId,
+          kind: DebtEntryKind.OBLIGATION,
+          direction: dto.direction,
+          amountToman: amount,
+          occurredAt,
+          ...(description !== undefined ? { description } : {}),
+        },
+      });
+      await this.createMirror(tx, cp, created);
+      return this.toEventDto(userId, created);
     });
-    return this.toEventDto(userId, created);
   }
 
   /**
@@ -191,7 +198,7 @@ export class DebtsService {
       occurredAt: Date;
     },
   ): Promise<void> {
-    await client.debtEvent.create({
+    const created = await client.debtEvent.create({
       data: {
         ownerUserId: params.userId,
         counterpartyId: params.counterpartyId,
@@ -203,6 +210,8 @@ export class DebtsService {
         description: "طلب از تقسیم هزینه",
       },
     });
+    const cp = await client.counterparty.findFirst({ where: { id: params.counterpartyId } });
+    if (cp !== null) await this.createMirror(client, cp, created);
   }
 
   /** Resolve a Phase-3 participant share (label-only) into a receivable. */
@@ -224,17 +233,21 @@ export class DebtsService {
     if (existing !== null) {
       throw ApiError.conflict("این سهم قبلاً به یک رویداد بدهی تبدیل شده است");
     }
-    const created = await this.prisma.debtEvent.create({
-      data: {
-        ownerUserId: userId,
-        counterpartyId: cp.id,
-        kind: DebtEntryKind.OBLIGATION,
-        direction: DebtDirection.OWES_ME,
-        amountToman: share.amountToman,
-        sourceShareId: share.id,
-        occurredAt: share.transaction.occurredAt,
-        description: "طلب از تقسیم هزینه",
-      },
+    const created = await this.prisma.$transaction(async (tx) => {
+      const event = await tx.debtEvent.create({
+        data: {
+          ownerUserId: userId,
+          counterpartyId: cp.id,
+          kind: DebtEntryKind.OBLIGATION,
+          direction: DebtDirection.OWES_ME,
+          amountToman: share.amountToman,
+          sourceShareId: share.id,
+          occurredAt: share.transaction.occurredAt,
+          description: "طلب از تقسیم هزینه",
+        },
+      });
+      await this.createMirror(tx, cp, event);
+      return event;
     });
     return this.toEventDto(userId, created);
   }
@@ -308,6 +321,8 @@ export class DebtsService {
         },
       });
 
+      await this.createMirror(tx, cp, event);
+
       return this.toEventDto(userId, event);
     });
   }
@@ -370,6 +385,53 @@ export class DebtsService {
       netToman: Number(netAll),
       counterparties: entries,
     };
+  }
+
+  private async createMirror(
+    client: Client,
+    sourceCounterparty: Prisma.CounterpartyGetPayload<object>,
+    sourceEvent: DebtEventRow,
+  ): Promise<void> {
+    if (sourceCounterparty.kind !== "USER" || sourceCounterparty.linkedUserId === null) return;
+    const target = await client.counterparty.findFirst({
+      where: {
+        ownerUserId: sourceCounterparty.linkedUserId,
+        linkedUserId: sourceCounterparty.ownerUserId,
+        kind: "USER",
+      },
+    });
+    if (target === null) return;
+    const existing = await client.debtEvent.findUnique({
+      where: { mirroredFromId: sourceEvent.id },
+    });
+    if (existing !== null) return;
+    await client.debtEvent.create({
+      data: {
+        ownerUserId: target.ownerUserId,
+        counterpartyId: target.id,
+        kind: sourceEvent.kind,
+        direction: inverseDirection(sourceEvent.direction),
+        amountToman: sourceEvent.amountToman,
+        occurredAt: sourceEvent.occurredAt,
+        description: sourceEvent.description,
+        mirroredFromId: sourceEvent.id,
+      },
+    });
+  }
+
+  async synchronizeLinkedCounterparty(
+    client: Client,
+    counterparty: Prisma.CounterpartyGetPayload<object>,
+  ): Promise<void> {
+    if (counterparty.kind !== "USER" || counterparty.linkedUserId === null) return;
+    const events = await client.debtEvent.findMany({
+      where: {
+        ownerUserId: counterparty.ownerUserId,
+        counterpartyId: counterparty.id,
+        mirroredFromId: null,
+      },
+    });
+    for (const event of events) await this.createMirror(client, counterparty, event);
   }
 
   // ---- helpers ------------------------------------------------------------

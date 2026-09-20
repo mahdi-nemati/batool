@@ -12,7 +12,7 @@ const unwrap = <T>(p: Promise<ApiResponse<T>>) => p.then((r) => r.data);
 export interface CreateInstallmentInput {
   name: string;
   description?: string;
-  amountToman: number;
+  amountToman: number | string;
   totalCount: number;
   dueDayOfMonth: number;
   startDate: number; // epoch millis (UTC)
@@ -21,7 +21,7 @@ export interface CreateInstallmentInput {
 export interface UpdateInstallmentInput {
   name?: string;
   description?: string;
-  amountToman?: number;
+  amountToman?: number | string;
   totalCount?: number;
   dueDayOfMonth?: number;
   startDate?: number;

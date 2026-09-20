@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiClientError } from "@/lib/api/client";
 import { createBankAccount } from "@/lib/api/finance";
+import { MoneyInput } from "@/components/ui/MoneyInput";
 
 const inputClass =
   "w-full rounded-lg border border-line bg-white px-3 py-2 text-ink outline-none focus:border-accent";
@@ -21,7 +22,7 @@ export function AddAccountForm() {
     setError(null);
     setBusy(true);
     try {
-      await createBankAccount({ name, initialBalanceToman: Number(initial) || 0 });
+      await createBankAccount({ name, initialBalanceToman: initial || "0" });
       setName("");
       setInitial("0");
       router.refresh();
@@ -60,14 +61,7 @@ export function AddAccountForm() {
         <label className={labelClass} htmlFor="acc-initial">
           مبلغ اولیه (تومان)
         </label>
-        <input
-          id="acc-initial"
-          dir="ltr"
-          inputMode="numeric"
-          value={initial}
-          onChange={(e) => setInitial(e.target.value.replace(/[^\d]/g, ""))}
-          className={inputClass}
-        />
+        <MoneyInput id="acc-initial" value={initial} onChange={setInitial} className={inputClass} />
       </div>
       <button
         type="submit"

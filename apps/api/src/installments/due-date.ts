@@ -1,6 +1,6 @@
-// Deterministic Gregorian (UTC) monthly-occurrence math for installments.
-// Occurrence 1 (1-based) is scheduled in the calendar month of `startDate`; each
-// subsequent occurrence is one month later on `dueDayOfMonth`.
+// Deterministic Jalali monthly-occurrence math with Gregorian UTC persistence.
+// `dueDayOfMonth` is a Jalali day. Occurrence 1 is in the Jalali month of
+// `startDate`; each subsequent occurrence advances one Jalali month.
 //
 // Nonexistent due day policy: if the due day does not exist in a given month
 // (e.g. 31 in a 30-day month, or 29/30/31 in February), it is CLAMPED to that
@@ -12,19 +12,53 @@ export function daysInMonthUtc(year: number, monthIndex0: number): number {
   return new Date(Date.UTC(year, monthIndex0 + 1, 0)).getUTCDate();
 }
 
-/** Scheduled due date (UTC midnight) for a 1-based occurrence. */
+const TEHRAN = "Asia/Tehran";
+const jalaliParts = new Intl.DateTimeFormat("en-US-u-ca-persian", {
+  timeZone: TEHRAN,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+function calendarParts(date: Date): { year: number; month: number; day: number } {
+  const values = Object.fromEntries(
+    jalaliParts.formatToParts(date).map((part) => [part.type, Number(part.value)]),
+  );
+  return { year: values.year ?? NaN, month: values.month ?? NaN, day: values.day ?? NaN };
+}
+
+function shiftJalaliMonth(year: number, month: number, delta: number) {
+  const index = year * 12 + month - 1 + delta;
+  return { year: Math.floor(index / 12), month: (index % 12) + 1 };
+}
+
+function gregorianForJalaliDate(year: number, month: number, day: number): Date | null {
+  const estimate = Date.UTC(year + 621, 2, 21, 12);
+  for (let offset = -370; offset <= 370; offset += 1) {
+    const candidate = new Date(estimate + offset * 86400000);
+    const parts = calendarParts(candidate);
+    if (parts.year === year && parts.month === month && parts.day === day) {
+      return new Date(
+        Date.UTC(candidate.getUTCFullYear(), candidate.getUTCMonth(), candidate.getUTCDate()),
+      );
+    }
+  }
+  return null;
+}
+
+/** Scheduled due date (UTC midnight) for a 1-based Jalali occurrence. */
 export function dueDateForOccurrence(
   startDate: Date,
   dueDayOfMonth: number,
   occurrenceNo: number,
 ): Date {
-  const baseYear = startDate.getUTCFullYear();
-  const baseMonth = startDate.getUTCMonth();
-  const totalMonths = baseMonth + (occurrenceNo - 1);
-  const year = baseYear + Math.floor(totalMonths / 12);
-  const month = ((totalMonths % 12) + 12) % 12;
-  const day = Math.min(dueDayOfMonth, daysInMonthUtc(year, month));
-  return new Date(Date.UTC(year, month, day));
+  const base = calendarParts(startDate);
+  const target = shiftJalaliMonth(base.year, base.month, occurrenceNo - 1);
+  for (let day = Math.min(dueDayOfMonth, 31); day >= 1; day -= 1) {
+    const resolved = gregorianForJalaliDate(target.year, target.month, day);
+    if (resolved !== null) return resolved;
+  }
+  throw new Error("Unable to resolve Jalali installment due date");
 }
 
 export type OccurrenceStatus = "UPCOMING" | "DUE" | "OVERDUE";

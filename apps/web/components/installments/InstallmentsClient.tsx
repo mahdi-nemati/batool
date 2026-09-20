@@ -13,6 +13,8 @@ import {
 } from "@/lib/api/installments";
 import { formatTomanUnit } from "@/lib/formatting/persian";
 import { formatJalaliDate } from "@/lib/formatting/jalali";
+import { MoneyInput } from "@/components/ui/MoneyInput";
+import { JalaliDateInput } from "@/components/ui/JalaliDateInput";
 
 const inputClass =
   "w-full rounded-lg border border-line bg-white px-3 py-2 text-ink outline-none focus:border-accent";
@@ -126,7 +128,7 @@ function CreateForm({
       const startDate = start ? new Date(`${start}T00:00:00Z`).getTime() : Date.now();
       await createInstallment({
         name,
-        amountToman: Number(amount),
+        amountToman: amount,
         totalCount: Number(count),
         dueDayOfMonth: Number(day),
         startDate,
@@ -158,14 +160,7 @@ function CreateForm({
       </div>
       <div>
         <label className={labelClass}>مبلغ هر قسط (تومان)</label>
-        <input
-          className={inputClass}
-          dir="ltr"
-          inputMode="numeric"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
-          required
-        />
+        <MoneyInput value={amount} onChange={setAmount} required className={inputClass} />
       </div>
       <div>
         <label className={labelClass}>تعداد اقساط</label>
@@ -191,13 +186,7 @@ function CreateForm({
       </div>
       <div>
         <label className={labelClass}>تاریخ شروع (اختیاری)</label>
-        <input
-          className={inputClass}
-          type="date"
-          dir="ltr"
-          value={start}
-          onChange={(e) => setStart(e.target.value)}
-        />
+        <JalaliDateInput className={inputClass} value={start} onChange={setStart} />
       </div>
       <button
         disabled={busy}

@@ -14,6 +14,7 @@ import { listBankAccounts, listFunds } from "@/lib/api/finance";
 import { createDebtEvent, getCounterparty, settleDebt, updateCounterparty } from "@/lib/api/debts";
 import { formatTomanUnit } from "@/lib/formatting/persian";
 import { formatJalaliDate } from "@/lib/formatting/jalali";
+import { MoneyInput } from "@/components/ui/MoneyInput";
 
 const inputClass =
   "w-full rounded-lg border border-line bg-white px-3 py-2 text-ink outline-none focus:border-accent";
@@ -75,7 +76,7 @@ export function CounterpartyDetailClient({ id }: { id: string }) {
       await createDebtEvent({
         counterpartyId: id,
         direction: dir,
-        amountToman: Number(dAmount),
+        amountToman: dAmount,
         ...(dDesc ? { description: dDesc } : {}),
       });
       setDAmount("");
@@ -99,7 +100,7 @@ export function CounterpartyDetailClient({ id }: { id: string }) {
       const assetId = asset.slice(idx + 1);
       await settleDebt({
         counterpartyId: id,
-        amountToman: Number(sAmount),
+        amountToman: sAmount,
         assetKind: kind,
         assetId,
       });
@@ -191,13 +192,11 @@ export function CounterpartyDetailClient({ id }: { id: string }) {
             <option value="OWES_ME">طرف مقابل به من بدهکار است</option>
             <option value="I_OWE">من به طرف مقابل بدهکارم</option>
           </select>
-          <input
+          <MoneyInput
             className={inputClass}
-            dir="ltr"
-            inputMode="numeric"
             placeholder="مبلغ (تومان)"
             value={dAmount}
-            onChange={(e) => setDAmount(e.target.value.replace(/[^\d]/g, ""))}
+            onChange={setDAmount}
             required
           />
           <input
@@ -223,13 +222,11 @@ export function CounterpartyDetailClient({ id }: { id: string }) {
           <p className="text-xs text-muted">
             جهت تسویه بر اساس مانده فعلی به‌طور خودکار تعیین می‌شود.
           </p>
-          <input
+          <MoneyInput
             className={inputClass}
-            dir="ltr"
-            inputMode="numeric"
             placeholder="مبلغ (تومان)"
             value={sAmount}
-            onChange={(e) => setSAmount(e.target.value.replace(/[^\d]/g, ""))}
+            onChange={setSAmount}
             required
           />
           <select

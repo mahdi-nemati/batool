@@ -40,9 +40,10 @@ export class TransactionsService {
     const occurredAt = this.parseOccurredAt(dto.occurredAt);
     const description = this.cleanDescription(dto.description);
 
-    // Gold / USD can never be income/expense sources (Toman-only).
-    if (dto.assetKind === AssetKind.GOLD || dto.assetKind === AssetKind.USD) {
-      throw ApiError.validation("assetKind", "طلا و دلار نمی‌توانند مبدأ درآمد یا هزینه باشند");
+    // Direct Income/Expense entries are bank-only. Funds move through transfers;
+    // Gold/USD are separate native-currency trade wallets.
+    if (dto.assetKind !== AssetKind.BANK) {
+      throw ApiError.validation("assetKind", "درآمد و هزینه مستقیم فقط از حساب بانکی مجاز است");
     }
 
     const category = await this.prisma.category.findUnique({ where: { id: dto.categoryId } });

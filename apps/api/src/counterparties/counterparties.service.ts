@@ -107,7 +107,9 @@ export class CounterpartiesService {
 
     // Ensure a counterparty exists in EACH user's context (symmetric view).
     const mine = await this.ensureUserCounterparty(userId, target.id, target.nickname);
-    await this.ensureUserCounterparty(target.id, userId, me.nickname);
+    const theirs = await this.ensureUserCounterparty(target.id, userId, me.nickname);
+    await this.debts.synchronizeLinkedCounterparty(this.prisma, mine);
+    await this.debts.synchronizeLinkedCounterparty(this.prisma, theirs);
 
     return {
       id: connection.id,

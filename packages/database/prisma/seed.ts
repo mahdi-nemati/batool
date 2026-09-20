@@ -6,14 +6,18 @@ import { PrismaClient } from "../src/index";
 const prisma = new PrismaClient();
 
 const EXPENSE_CATEGORIES = [
+  "خوراک",
   "غذا",
   "حمل‌ونقل",
   "خرید",
+  "قبض و خدمات",
   "قبوض",
   "تفریح",
   "سلامت",
   "آموزش",
+  "خانه",
   "مسکن",
+  "پوشاک",
   "اقساط",
   "شهریه سه‌تار",
   "متفرقه",
@@ -36,6 +40,21 @@ async function main(): Promise<void> {
       update: {},
     });
   }
+
+  // Preserve historical rows but hide accidental fixture-like categories from
+  // future selection. Historical transactions continue resolving their category.
+  await prisma.category.updateMany({
+    where: {
+      isSystem: false,
+      OR: [
+        { name: { startsWith: "رستورانmu" } },
+        { name: { startsWith: "هدیهmu" } },
+        { name: { startsWith: "پشتیبانی-" } },
+        { name: { startsWith: "تاریخی-" } },
+      ],
+    },
+    data: { isActive: false },
+  });
 
   const adminUsername = process.env.SEED_ADMIN_USERNAME;
   if (adminUsername !== undefined && adminUsername.length > 0) {

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getMeServer } from "@/lib/api/auth";
 import { LogoutButton } from "@/components/auth/LogoutButton";
+import { ToastProvider } from "@/components/ui/ToastProvider";
 
 export default async function DashboardLayout({
   children,
@@ -62,7 +63,9 @@ export default async function DashboardLayout({
           <LogoutButton />
         </div>
       </header>
-      <main className="mx-auto max-w-6xl p-5">{children}</main>
+      <ToastProvider>
+        <main className="mx-auto max-w-6xl p-5">{children}</main>
+      </ToastProvider>
     </div>
   );
 }

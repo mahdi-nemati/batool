@@ -11,12 +11,12 @@ import { ApiClientError, SERVER_API_ORIGIN, request } from "./client";
 
 export interface CreateBankAccountInput {
   name: string;
-  initialBalanceToman: number;
+  initialBalanceToman: number | string;
 }
 
 export interface CreateFundInput {
   name: string;
-  goalToman?: number;
+  goalToman?: number | string;
 }
 
 export interface CreateTransferInput {
@@ -24,7 +24,7 @@ export interface CreateTransferInput {
   sourceId?: string;
   destinationKind: AssetKind;
   destinationId?: string;
-  amountToman?: number;
+  amountToman?: number | string;
   amountGram?: string;
   amountUsd?: string;
 }

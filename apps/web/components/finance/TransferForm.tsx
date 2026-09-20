@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { AssetKind } from "@batool/types";
 import { ApiClientError } from "@/lib/api/client";
 import { createTransfer } from "@/lib/api/finance";
+import { MoneyInput } from "@/components/ui/MoneyInput";
 
 const inputClass =
   "w-full rounded-lg border border-line bg-white px-3 py-2 text-ink outline-none focus:border-accent";
@@ -70,7 +71,7 @@ export function TransferForm({ accounts, funds }: Props) {
         ...(src.id.length > 0 ? { sourceId: src.id } : {}),
         destinationKind: dst.kind,
         ...(dst.id.length > 0 ? { destinationId: dst.id } : {}),
-        ...(toman.length > 0 ? { amountToman: Number(toman) } : {}),
+        ...(toman.length > 0 ? { amountToman: toman } : {}),
       });
       setToman("");
       router.refresh();
@@ -136,14 +137,7 @@ export function TransferForm({ accounts, funds }: Props) {
         <label className={labelClass} htmlFor="tr-toman">
           مبلغ (تومان)
         </label>
-        <input
-          id="tr-toman"
-          dir="ltr"
-          inputMode="numeric"
-          value={toman}
-          onChange={(e) => setToman(e.target.value.replace(/[^\d]/g, ""))}
-          className={inputClass}
-        />
+        <MoneyInput id="tr-toman" value={toman} onChange={setToman} className={inputClass} />
       </div>
       <button
         type="submit"

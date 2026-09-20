@@ -22,6 +22,8 @@ import {
 } from "@/lib/api/setar";
 import { formatJalaliDate } from "@/lib/formatting/jalali";
 import { formatTomanUnit } from "@/lib/formatting/persian";
+import { MoneyInput } from "@/components/ui/MoneyInput";
+import { JalaliDateInput } from "@/components/ui/JalaliDateInput";
 
 const inputClass =
   "w-full rounded-lg border border-line bg-white px-3 py-2 text-ink outline-none focus:border-accent";
@@ -206,7 +208,7 @@ function SetupForm({
     onError("");
     setBusy(true);
     try {
-      await createSetarProfile(Number(tuition));
+      await createSetarProfile(tuition);
       setTuition("");
       await onDone();
     } catch (err) {
@@ -224,14 +226,7 @@ function SetupForm({
       <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
         <div className="min-w-48 flex-1">
           <label className={labelClass}>شهریه هر دوره (تومان)</label>
-          <input
-            className={inputClass}
-            dir="ltr"
-            inputMode="numeric"
-            value={tuition}
-            onChange={(e) => setTuition(e.target.value.replace(/[^\d]/g, ""))}
-            required
-          />
+          <MoneyInput className={inputClass} value={tuition} onChange={setTuition} required />
         </div>
         <button
           disabled={busy}
@@ -284,13 +279,7 @@ function SessionForm({
       <h3 className="font-bold">ثبت جلسه</h3>
       <div>
         <label className={labelClass}>تاریخ جلسه (اختیاری)</label>
-        <input
-          className={inputClass}
-          type="date"
-          dir="ltr"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
+        <JalaliDateInput className={inputClass} value={date} onChange={setDate} />
       </div>
       <div>
         <label className={labelClass}>توضیح (اختیاری)</label>
@@ -330,7 +319,7 @@ function TuitionForm({
     onError("");
     setBusy(true);
     try {
-      await updateSetarProfile(profileId, { tuitionAmountToman: Number(tuition) });
+      await updateSetarProfile(profileId, { tuitionAmountToman: tuition });
       setTuition("");
       await onDone();
     } catch (err) {
@@ -351,14 +340,7 @@ function TuitionForm({
       </h3>
       <div>
         <label className={labelClass}>شهریه جدید (تومان)</label>
-        <input
-          className={inputClass}
-          dir="ltr"
-          inputMode="numeric"
-          value={tuition}
-          onChange={(e) => setTuition(e.target.value.replace(/[^\d]/g, ""))}
-          required
-        />
+        <MoneyInput className={inputClass} value={tuition} onChange={setTuition} required />
       </div>
       <button
         disabled={busy}

@@ -11,7 +11,7 @@ const unwrap = <T>(p: Promise<ApiResponse<T>>) => p.then((r) => r.data);
 
 export const getSetarStatus = () => unwrap(request<ApiResponse<SetarStatusDto>>("/setar"));
 
-export const createSetarProfile = (tuitionAmountToman: number) =>
+export const createSetarProfile = (tuitionAmountToman: number | string) =>
   unwrap(
     request<ApiResponse<SetarStatusDto>>("/setar", {
       method: "POST",
@@ -21,7 +21,7 @@ export const createSetarProfile = (tuitionAmountToman: number) =>
 
 export const updateSetarProfile = (
   id: string,
-  body: { tuitionAmountToman?: number; archived?: boolean },
+  body: { tuitionAmountToman?: number | string; archived?: boolean },
 ) =>
   unwrap(
     request<ApiResponse<SetarStatusDto>>(`/setar/${id}`, {
