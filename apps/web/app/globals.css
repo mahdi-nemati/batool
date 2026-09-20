@@ -1,16 +1,101 @@
 @import "tailwindcss";
 
+/* ============================================================
+   Batool turquoise design system — single source of truth.
+   Warm neutral surfaces + turquoise identity. No dark mode,
+   no Graphite, no gradients, no color-scheme: dark.
+   ============================================================ */
 @theme {
   --font-sans: "Vazirmatn", Tahoma, ui-sans-serif, system-ui, sans-serif;
 
+  /* --- Batool warm neutrals (unchanged) --- */
   --color-paper: #f7f5ef;
   --color-panel: #fffdf8;
   --color-ink: #24312f;
   --color-muted: #6a7773;
   --color-line: #e4e0d5;
-  --color-accent: #1d7468;
-  --color-accent-dark: #14584f;
   --color-danger: #a33a3a;
+
+  /* --- Turquoise scale — the brand core --- */
+  --color-turquoise-50: #e7f6f4;
+  --color-turquoise-100: #cdeeeb;
+  --color-turquoise-200: #a5e0db;
+  --color-turquoise-300: #6fc7c1;
+  --color-turquoise-400: #3aaba3;
+  --color-turquoise-500: #159a91;
+  --color-turquoise-600: #0f857d;
+  --color-turquoise-700: #0f716b;
+  --color-turquoise-800: #135a56;
+  --color-turquoise-900: #0f4a47;
+
+  /* --- Batool strength aliases (reference the scale, no duplicates) --- */
+  --color-accent-teal: var(--color-turquoise-600);
+  --color-accent-teal-dark: var(--color-turquoise-700);
+  --color-accent-dark: var(--color-accent-teal-dark);
+  --color-accent-soft: var(--color-turquoise-100);
+  --color-muted-text: var(--color-muted);
+
+  /* --- Subtle light-theme elevation --- */
+  --shadow-soft: 0 1px 2px rgb(36 49 47 / 0.04), 0 2px 6px rgb(36 49 47 / 0.06);
+  --shadow-elevated: 0 4px 12px rgb(36 49 47 / 0.08), 0 8px 24px rgb(36 49 47 / 0.06);
+
+  /* --- Radius scale — `--radius` stays the single source of truth --- */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* --- vibefarsi:theme-paper (light) mapped onto Batool turquoise tokens --- */
+:root {
+  color-scheme: light;
+
+  --background: var(--color-paper);
+  --foreground: var(--color-ink);
+  --card: var(--color-panel);
+  --card-foreground: var(--color-ink);
+  --popover: var(--color-panel);
+  --popover-foreground: var(--color-ink);
+  --primary: var(--color-turquoise-600);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-line);
+  --secondary-foreground: var(--color-ink);
+  --muted: var(--color-panel);
+  --muted-foreground: var(--color-muted);
+  --accent: var(--color-turquoise-600);
+  --accent-foreground: #ffffff;
+  --destructive: var(--color-danger);
+  --destructive-foreground: #ffffff;
+  --border: var(--color-line);
+  --input: var(--color-line);
+  --ring: var(--color-turquoise-600);
+  --brand: var(--color-turquoise-500);
+  --brand-foreground: #ffffff;
+  --radius: 0.75rem;
+}
+
+/* --- vibefarsi:tailwind-map --- */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
 }
 
 @layer base {
@@ -25,7 +110,7 @@
 
 @layer utilities {
   :where(a, button, input, select, textarea):focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
 }

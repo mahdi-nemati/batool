@@ -1,11 +1,3 @@
 {
-  "extends": "./packages/config/tsconfig/base.json",
-  "compilerOptions": {
-    "paths": {
-      "@/*": [
-        "./*"
-      ]
-    },
-    "baseUrl": "."
-  }
+  "extends": "./packages/config/tsconfig/base.json"
 }

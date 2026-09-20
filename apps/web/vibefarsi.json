@@ -1,10 +1,10 @@
 {
   "registry": "https://vibefarsi.ir/r",
-  "theme": "graphite",
+  "theme": "paper",
   "font": "vazirmatn",
   "aliases": {
     "components": "@/components",
-    "utils": "@/lib/utils",
+    "utils": "@/lib/cn",
     "lib": "@/lib"
   },
   "tailwind": {
