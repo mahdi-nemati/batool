@@ -1,6 +1,6 @@
 {
   "registry": "https://vibefarsi.ir/r",
-  "theme": "paper",
+  "theme": "Turquoise",
   "font": "vazirmatn",
   "aliases": {
     "components": "@/components",

@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiClientError } from "@/lib/api/client";
 import { register } from "@/lib/api/auth";
-
-const inputClass =
-  "w-full rounded-lg border border-line bg-white px-3 py-2 text-ink outline-none focus:border-accent";
-const labelClass = "mb-1 block text-sm text-muted";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -34,102 +34,92 @@ export function RegisterForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-bold">ثبت‌نام</h1>
-        <p className="mt-1 text-sm text-muted">یک حساب جدید بسازید.</p>
-      </div>
+    <Card className="w-full max-w-sm">
+      <CardHeader>
+        <CardTitle as="h1">ثبت‌نام</CardTitle>
+        <CardDescription>یک حساب جدید بسازید.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          {error !== null ? (
+            <p
+              role="alert"
+              className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+            >
+              {error}
+            </p>
+          ) : null}
 
-      {error !== null ? (
-        <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
-          {error}
-        </p>
-      ) : null}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="username">نام کاربری</Label>
+            <Input
+              id="username"
+              dir="ltr"
+              required
+              minLength={3}
+              maxLength={20}
+              pattern="[a-zA-Z0-9_.]+"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+            <p className="text-xs text-muted">
+              حروف کوچک، رقم، نقطه یا زیرخط (۳ تا ۲۰ نویسه). بعداً قابل تغییر نیست.
+            </p>
+          </div>
 
-      <div>
-        <label className={labelClass} htmlFor="username">
-          نام کاربری
-        </label>
-        <input
-          id="username"
-          dir="ltr"
-          required
-          minLength={3}
-          maxLength={20}
-          pattern="[a-zA-Z0-9_.]+"
-          autoComplete="username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          className={inputClass}
-        />
-        <p className="mt-1 text-xs text-muted">
-          حروف کوچک، رقم، نقطه یا زیرخط (۳ تا ۲۰ نویسه). بعداً قابل تغییر نیست.
-        </p>
-      </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="nickname">نام مستعار</Label>
+            <Input
+              id="nickname"
+              required
+              maxLength={40}
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+            />
+          </div>
 
-      <div>
-        <label className={labelClass} htmlFor="nickname">
-          نام مستعار
-        </label>
-        <input
-          id="nickname"
-          required
-          maxLength={40}
-          value={nickname}
-          onChange={(e) => setNickname(e.target.value)}
-          className={inputClass}
-        />
-      </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="email">ایمیل</Label>
+            <Input
+              id="email"
+              type="email"
+              dir="ltr"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
 
-      <div>
-        <label className={labelClass} htmlFor="email">
-          ایمیل
-        </label>
-        <input
-          id="email"
-          type="email"
-          dir="ltr"
-          required
-          autoComplete="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className={inputClass}
-        />
-      </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="password">رمز عبور</Label>
+            <Input
+              id="password"
+              type="password"
+              dir="ltr"
+              required
+              minLength={8}
+              maxLength={128}
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <p className="text-xs text-muted">حداقل ۸ نویسه شامل حرف و رقم.</p>
+          </div>
 
-      <div>
-        <label className={labelClass} htmlFor="password">
-          رمز عبور
-        </label>
-        <input
-          id="password"
-          type="password"
-          dir="ltr"
-          required
-          minLength={8}
-          maxLength={128}
-          autoComplete="new-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className={inputClass}
-        />
-        <p className="mt-1 text-xs text-muted">حداقل ۸ نویسه شامل حرف و رقم.</p>
-      </div>
+          <Button type="submit" disabled={busy} className="w-full">
+            {busy ? "در حال ثبت‌نام…" : "ایجاد حساب"}
+          </Button>
 
-      <button
-        type="submit"
-        disabled={busy}
-        className="rounded-lg bg-accent px-4 py-2 font-bold text-white transition-colors hover:bg-accent-dark disabled:opacity-60"
-      >
-        {busy ? "در حال ثبت‌نام…" : "ایجاد حساب"}
-      </button>
-
-      <p className="text-center text-sm text-muted">
-        حساب دارید؟{" "}
-        <Link href="/login" className="font-bold text-accent-dark">
-          ورود
-        </Link>
-      </p>
-    </form>
+          <p className="text-center text-sm text-muted">
+            حساب دارید؟{" "}
+            <Link href="/login" className="font-semibold text-primary hover:underline">
+              ورود
+            </Link>
+          </p>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

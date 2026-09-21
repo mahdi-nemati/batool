@@ -106,6 +106,15 @@
   body {
     font-variant-numeric: tabular-nums;
   }
+
+  /* Form controls stay ≥16px on iOS so Safari does not zoom on focus. */
+  @supports (-webkit-touch-callout: none) {
+    input,
+    textarea,
+    select {
+      font-size: 16px;
+    }
+  }
 }
 
 @layer utilities {

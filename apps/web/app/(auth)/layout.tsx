@@ -9,9 +9,7 @@ export default function AuthLayout({ children }: Readonly<{ children: React.Reac
       <Link href="/" className="text-3xl font-bold text-accent-dark">
         بتول
       </Link>
-      <div className="w-full max-w-sm rounded-2xl border border-line bg-panel p-6 shadow-sm">
-        {children}
-      </div>
+      {children}
     </main>
   );
 }

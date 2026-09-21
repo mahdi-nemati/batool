@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ApiClientError } from "@/lib/api/client";
 import { login } from "@/lib/api/auth";
-
-const inputClass =
-  "w-full rounded-lg border border-line bg-white px-3 py-2 text-ink outline-none focus:border-accent";
-const labelClass = "mb-1 block text-sm text-muted";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export function LoginForm() {
   const router = useRouter();
@@ -32,64 +32,60 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-bold">ورود</h1>
-        <p className="mt-1 text-sm text-muted">برای ادامه وارد حساب خود شوید.</p>
-      </div>
+    <Card className="w-full max-w-sm">
+      <CardHeader>
+        <CardTitle as="h1">ورود</CardTitle>
+        <CardDescription>برای ادامه وارد حساب خود شوید.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          {error !== null ? (
+            <p
+              role="alert"
+              className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+            >
+              {error}
+            </p>
+          ) : null}
 
-      {error !== null ? (
-        <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
-          {error}
-        </p>
-      ) : null}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="email">ایمیل</Label>
+            <Input
+              id="email"
+              type="email"
+              dir="ltr"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
 
-      <div>
-        <label className={labelClass} htmlFor="email">
-          ایمیل
-        </label>
-        <input
-          id="email"
-          type="email"
-          dir="ltr"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className={inputClass}
-        />
-      </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="password">رمز عبور</Label>
+            <Input
+              id="password"
+              type="password"
+              dir="ltr"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
 
-      <div>
-        <label className={labelClass} htmlFor="password">
-          رمز عبور
-        </label>
-        <input
-          id="password"
-          type="password"
-          dir="ltr"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className={inputClass}
-        />
-      </div>
+          <Button type="submit" disabled={busy} className="w-full">
+            {busy ? "در حال ورود…" : "ورود"}
+          </Button>
 
-      <button
-        type="submit"
-        disabled={busy}
-        className="rounded-lg bg-accent px-4 py-2 font-bold text-white transition-colors hover:bg-accent-dark disabled:opacity-60"
-      >
-        {busy ? "در حال ورود…" : "ورود"}
-      </button>
-
-      <p className="text-center text-sm text-muted">
-        حساب ندارید؟{" "}
-        <Link href="/register" className="font-bold text-accent-dark">
-          ثبت‌نام
-        </Link>
-      </p>
-    </form>
+          <p className="text-center text-sm text-muted-foreground">
+            حساب ندارید؟{" "}
+            <Link href="/register" className="font-semibold text-primary hover:underline">
+              ثبت‌نام
+            </Link>
+          </p>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getMeServer } from "@/lib/api/auth";
 import { LogoutButton } from "@/components/auth/LogoutButton";
-import { ToastProvider } from "@/components/ui/ToastProvider";
+import { ToastProvider } from "@/components/ui/toast";
 
 export default async function DashboardLayout({
   children,
