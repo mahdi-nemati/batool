@@ -46,7 +46,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(function Inp
         "flex w-full min-w-0 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70",
         "disabled:cursor-not-allowed disabled:opacity-50",
         grouped
-          ? "h-full px-0 outline-none"
+          ? "h-full px-0 outline-none focus:outline-none focus-visible:outline-none"
           : cn(
               "h-10 rounded-lg border border-input bg-background/60 px-3 transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:border-transparent",

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -16,6 +17,7 @@ export function RegisterForm() {
   const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -40,7 +42,7 @@ export function RegisterForm() {
         <CardDescription>یک حساب جدید بسازید.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <form onSubmit={onSubmit} className="flex flex-col gap-5">
           {error !== null ? (
             <p
               role="alert"
@@ -50,7 +52,7 @@ export function RegisterForm() {
             </p>
           ) : null}
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="username">نام کاربری</Label>
             <Input
               id="username"
@@ -68,7 +70,7 @@ export function RegisterForm() {
             </p>
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="nickname">نام مستعار</Label>
             <Input
               id="nickname"
@@ -79,7 +81,7 @@ export function RegisterForm() {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="email">ایمیل</Label>
             <Input
               id="email"
@@ -92,12 +94,11 @@ export function RegisterForm() {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="password">رمز عبور</Label>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
-              dir="ltr"
+              strength
               required
               minLength={8}
               maxLength={128}
@@ -105,10 +106,19 @@ export function RegisterForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-            <p className="text-xs text-muted">حداقل ۸ نویسه شامل حرف و رقم.</p>
           </div>
 
-          <Button type="submit" disabled={busy} className="w-full">
+          <label className="flex cursor-pointer items-start gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={accepted}
+              onChange={(e) => setAccepted(e.target.checked)}
+              className="mt-0.5 size-4 shrink-0 cursor-pointer accent-primary"
+            />
+            <span>با قوانین بتول موافقم</span>
+          </label>
+
+          <Button type="submit" disabled={busy || !accepted} className="w-full">
             {busy ? "در حال ثبت‌نام…" : "ایجاد حساب"}
           </Button>
 

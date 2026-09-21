@@ -39,7 +39,7 @@ export function LoginForm() {
         <CardDescription>برای ادامه وارد حساب خود شوید.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <form onSubmit={onSubmit} className="flex flex-col gap-5">
           {error !== null ? (
             <p
               role="alert"
@@ -49,7 +49,7 @@ export function LoginForm() {
             </p>
           ) : null}
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="email">ایمیل</Label>
             <Input
               id="email"
@@ -62,7 +62,7 @@ export function LoginForm() {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="password">رمز عبور</Label>
             <PasswordInput
               id="password"
