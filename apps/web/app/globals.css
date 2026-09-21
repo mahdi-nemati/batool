@@ -1,9 +1,10 @@
 @import "tailwindcss";
 
 /* ============================================================
-   Batool turquoise design system — single source of truth.
-   Warm neutral surfaces + turquoise identity. No dark mode,
-   no Graphite, no gradients, no color-scheme: dark.
+   Batool design system — single source of truth.
+   Default: warm-neutral light surfaces + turquoise identity.
+   Dark "Turquoise" skin: [data-theme="turquoise"] — color-scheme
+   dark, cool blue-tinted surfaces, light turquoise primary.
    ============================================================ */
 @theme {
   --font-sans: "Vazirmatn", Tahoma, ui-sans-serif, system-ui, sans-serif;
@@ -34,6 +35,10 @@
   --color-accent-dark: var(--color-accent-teal-dark);
   --color-accent-soft: var(--color-turquoise-100);
   --color-muted-text: var(--color-muted);
+
+  /* --- Status colors for legal feedback (e.g. PasswordInput strength meter) --- */
+  --color-success: #2f7d5c;
+  --color-warning: #b06a1f;
 
   /* --- Subtle light-theme elevation --- */
   --shadow-soft: 0 1px 2px rgb(36 49 47 / 0.04), 0 2px 6px rgb(36 49 47 / 0.06);
@@ -72,6 +77,42 @@
   --brand: var(--color-turquoise-500);
   --brand-foreground: #ffffff;
   --radius: 0.75rem;
+}
+
+/* فیروزه. روی <html data-theme="turquoise"> یا هر عنصر دیگری اعمال کنید. */
+[data-theme="turquoise"] {
+  color-scheme: dark;
+  --background: oklch(0.15 0.03 215);
+  --foreground: oklch(0.97 0.01 200);
+  --card: oklch(0.18 0.03 215);
+  --card-foreground: oklch(0.97 0.01 200);
+  --popover: oklch(0.2 0.03 215);
+  --popover-foreground: oklch(0.97 0.01 200);
+  --primary: oklch(0.83 0.13 190);
+  --primary-foreground: oklch(0.16 0.04 200);
+  --secondary: oklch(0.25 0.04 215);
+  --secondary-foreground: oklch(0.97 0.01 200);
+  --muted: oklch(0.22 0.035 215);
+  --muted-foreground: oklch(0.72 0.04 205);
+  --accent: oklch(0.25 0.04 215);
+  --accent-foreground: oklch(0.97 0.01 200);
+  --border: oklch(0.85 0.08 200 / 14%);
+  --input: oklch(0.85 0.08 200 / 18%);
+  --ring: oklch(0.83 0.13 190);
+  --brand: oklch(0.88 0.1 185);
+  --brand-foreground: oklch(0.16 0.04 200);
+  --radius: 0.75rem;
+}
+
+/* Legacy aliases follow the turquoise tokens so components that still spell
+   the warm-neutral names (bg-paper / bg-panel / text-ink / border-line /
+   text-muted) read their color from these tokens, never from hardcoded hex. */
+[data-theme="turquoise"] {
+  --color-paper: var(--background);
+  --color-panel: var(--card);
+  --color-ink: var(--foreground);
+  --color-muted: var(--muted-foreground);
+  --color-line: var(--border);
 }
 
 /* --- vibefarsi:tailwind-map --- */
