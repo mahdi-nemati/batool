@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArchiveRestore, CalendarCheck, History, Layers, Plus } from "lucide-react";
 import type { AssetKind, BankAccountDto, FundDto, InstallmentDto } from "@batool/types";
 import { ApiClientError } from "@/lib/api/client";
 import { listBankAccounts, listFunds } from "@/lib/api/finance";
@@ -13,31 +14,46 @@ import {
 } from "@/lib/api/installments";
 import { formatTomanUnit } from "@/lib/formatting/persian";
 import { formatJalaliDate } from "@/lib/formatting/jalali";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { JalaliDateInput } from "@/components/ui/JalaliDateInput";
+import { cn } from "@/lib/cn";
 
-const inputClass =
-  "w-full rounded-lg border border-line bg-white px-3 py-2 text-ink outline-none focus:border-accent";
-const labelClass = "mb-1 block text-sm text-muted";
+const moneyInputClass =
+  "h-10 w-full rounded-lg border border-input bg-background/60 px-3 text-sm text-foreground placeholder:text-muted-foreground/70";
 
 interface AssetOpt {
   value: string;
   label: string;
 }
 
-function statusLabel(s: InstallmentDto["status"]): { text: string; cls: string } {
+function statusMeta(s: InstallmentDto["status"]): { text: string; className: string } {
   switch (s) {
     case "UPCOMING":
-      return { text: "نزدیک", cls: "bg-paper text-muted" };
+      return { text: "نزدیک", className: "" };
     case "DUE":
-      return { text: "سررسید امروز", cls: "bg-accent text-white" };
+      return { text: "سررسید امروز", className: "" };
     case "OVERDUE":
-      return { text: "معوق", cls: "bg-danger text-white" };
+      return { text: "معوق", className: "" };
     case "COMPLETED":
-      return { text: "تکمیل‌شده", cls: "bg-accent/10 text-accent-dark" };
+      return { text: "تکمیل‌شده", className: "bg-accent/10 text-accent-dark" };
     case "ARCHIVED":
-      return { text: "بایگانی‌شده", cls: "bg-paper text-muted" };
+      return { text: "بایگانی‌شده", className: "" };
   }
+}
+
+function StatusBadge({ status }: { status: InstallmentDto["status"] }) {
+  const meta = statusMeta(status);
+  const variant =
+    status === "OVERDUE" ? "destructive" : status === "DUE" ? "default" : "secondary";
+  return <Badge variant={variant} className={meta.className}>{meta.text}</Badge>;
 }
 
 export function InstallmentsClient() {
@@ -47,7 +63,7 @@ export function InstallmentsClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  async function reload() {
+  const reload = useCallback(async () => {
     const [inst, acc, fun] = await Promise.all([
       listInstallments(),
       listBankAccounts(),
@@ -56,13 +72,13 @@ export function InstallmentsClient() {
     setItems(inst);
     setAccounts(acc);
     setFunds(fun);
-  }
+  }, []);
 
   useEffect(() => {
     reload()
       .catch((e) => setError(e instanceof ApiClientError ? e.message : "خطا در بارگذاری"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [reload]);
 
   const assetOptions: AssetOpt[] = useMemo(
     () => [
@@ -73,8 +89,13 @@ export function InstallmentsClient() {
   );
 
   return (
-    <div className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold">اقساط</h1>
+    <div className="flex flex-col gap-6">
+      <header>
+        <p className="text-sm text-muted">تعهدات مالی</p>
+        <h1 className="text-3xl font-bold">اقساط</h1>
+        <p className="mt-1 text-sm text-muted">پرداخت‌های دوره‌ای را پیگیری کنید</p>
+      </header>
+
       {error !== null ? (
         <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
           {error}
@@ -83,25 +104,41 @@ export function InstallmentsClient() {
 
       <CreateForm onDone={reload} onError={setError} />
 
-      {loading ? (
-        <p className="text-muted">در حال بارگذاری…</p>
-      ) : items.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-line p-4 text-muted">
-          هنوز اقساطی ثبت نشده است.
-        </p>
-      ) : (
-        <ul className="flex flex-col gap-4">
-          {items.map((it) => (
-            <InstallmentCard
-              key={it.id}
-              item={it}
-              assetOptions={assetOptions}
-              onChanged={reload}
-              onError={setError}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Layers className="size-4 text-primary" aria-hidden />
+            فهرست اقساط
+          </CardTitle>
+          <CardDescription>پیشرفت و پرداخت‌های هر قسط</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex flex-col gap-3">
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          ) : items.length === 0 ? (
+            <EmptyState
+              icon={Layers}
+              title="هنوز اقساطی ثبت نشده است"
+              description="با تعریف اولین قسط، پرداخت‌های دوره‌ای را پیگیری کنید."
             />
-          ))}
-        </ul>
-      )}
+          ) : (
+            <ul className="flex flex-col divide-y divide-border">
+              {items.map((it) => (
+                <InstallmentCard
+                  key={it.id}
+                  item={it}
+                  assetOptions={assetOptions}
+                  onChanged={reload}
+                  onError={setError}
+                />
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -144,57 +181,72 @@ function CreateForm({
   }
 
   return (
-    <form
-      onSubmit={submit}
-      className="grid gap-3 rounded-2xl border border-line bg-panel p-5 sm:grid-cols-2 lg:grid-cols-5"
-    >
-      <div>
-        <label className={labelClass}>نام</label>
-        <input
-          className={inputClass}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={60}
-          required
-        />
-      </div>
-      <div>
-        <label className={labelClass}>مبلغ هر قسط (تومان)</label>
-        <MoneyInput value={amount} onChange={setAmount} required className={inputClass} />
-      </div>
-      <div>
-        <label className={labelClass}>تعداد اقساط</label>
-        <input
-          className={inputClass}
-          dir="ltr"
-          inputMode="numeric"
-          value={count}
-          onChange={(e) => setCount(e.target.value.replace(/[^\d]/g, ""))}
-          required
-        />
-      </div>
-      <div>
-        <label className={labelClass}>روز سررسید (۱-۳۱)</label>
-        <input
-          className={inputClass}
-          dir="ltr"
-          inputMode="numeric"
-          value={day}
-          onChange={(e) => setDay(e.target.value.replace(/[^\d]/g, ""))}
-          required
-        />
-      </div>
-      <div>
-        <label className={labelClass}>تاریخ شروع (اختیاری)</label>
-        <JalaliDateInput className={inputClass} value={start} onChange={setStart} />
-      </div>
-      <button
-        disabled={busy}
-        className="self-end rounded-lg bg-accent px-4 py-2 font-bold text-white disabled:opacity-60 sm:col-span-2 lg:col-span-1"
-      >
-        {busy ? "…" : "ایجاد اقساط"}
-      </button>
-    </form>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Plus className="size-4 text-primary" aria-hidden />
+          قسط جدید
+        </CardTitle>
+        <CardDescription>مبلغ ثابت هر دوره به‌صورت سالیانه تکرار می‌شود.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="space-y-1.5">
+            <Label htmlFor="in-name">نام</Label>
+            <Input
+              id="in-name"
+              placeholder="مثلاً اقساط موبایل"
+              maxLength={60}
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="in-amount">مبلغ هر قسط (تومان)</Label>
+            <MoneyInput
+              id="in-amount"
+              className={moneyInputClass}
+              placeholder="مثلاً ۵۰۰٬۰۰۰"
+              required
+              value={amount}
+              onChange={setAmount}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="in-count">تعداد اقساط</Label>
+            <Input
+              id="in-count"
+              dir="ltr"
+              inputMode="numeric"
+              required
+              value={count}
+              onChange={(e) => setCount(e.target.value.replace(/[^\d]/g, ""))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="in-day">روز سررسید (۱-۳۱)</Label>
+            <Input
+              id="in-day"
+              dir="ltr"
+              inputMode="numeric"
+              required
+              value={day}
+              onChange={(e) => setDay(e.target.value.replace(/[^\d]/g, ""))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="in-start">تاریخ شروع (اختیاری)</Label>
+            <JalaliDateInput id="in-start" className={moneyInputClass} value={start} onChange={setStart} />
+          </div>
+          <div className="flex items-end">
+            <Button type="submit" disabled={busy} className="w-full lg:w-auto">
+              {busy ? "…" : "ایجاد اقساط"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -209,8 +261,8 @@ function InstallmentCard({
   onChanged: () => Promise<void>;
   onError: (e: string) => void;
 }) {
-  const st = statusLabel(item.status);
   const payable = !item.archived && item.status !== "COMPLETED";
+  const pct = item.totalCount === 0 ? 0 : Math.min(100, (item.paidCount / item.totalCount) * 100);
 
   const [asset, setAsset] = useState("");
   const [busy, setBusy] = useState(false);
@@ -263,84 +315,78 @@ function InstallmentCard({
   }
 
   return (
-    <li className="flex flex-col gap-3 rounded-2xl border border-line bg-panel p-5">
-      <div className="flex items-start justify-between gap-3">
+    <li className="flex flex-col gap-3 py-4 text-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-lg font-bold">{item.name}</h3>
-          <p className="text-sm text-muted">
+          <h3 className="text-base font-semibold leading-6">{item.name}</h3>
+          <p className="mt-0.5 text-muted-foreground">
             مبلغ هر قسط:{" "}
-            <span className="font-bold text-ink">{formatTomanUnit(item.amountToman)}</span> • روز
-            سررسید: {item.dueDayOfMonth} •
-            {item.nextDueDate ? ` قسط بعدی: ${formatJalaliDate(item.nextDueDate)}` : ""}
+            <b className="text-foreground tabular-nums">{formatTomanUnit(item.amountToman)}</b> · روز
+            سررسید: {item.dueDayOfMonth}
+            {item.nextDueDate ? ` · قسط بعدی: ${formatJalaliDate(item.nextDueDate)}` : ""}
           </p>
         </div>
-        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${st.cls}`}>
-          {st.text}
-        </span>
+        <StatusBadge status={item.status} />
       </div>
 
-      <div className="flex items-center gap-4 text-sm">
-        <span className="text-muted">پیشرفت:</span>
-        <span className="font-bold text-ink">
-          {item.paidCount} / {item.totalCount}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground">
+        <span>
+          پیشرفت:{" "}
+          <b className="text-foreground tabular-nums">
+            {item.paidCount} / {item.totalCount}
+          </b>
         </span>
-        <span className="text-muted">باقی‌مانده: {item.remainingCount}</span>
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-paper">
-          <div
-            className="h-full bg-accent"
-            style={{ width: `${Math.min(100, (item.paidCount / item.totalCount) * 100)}%` }}
-          />
-        </div>
+        <span>باقی‌مانده: {item.remainingCount}</span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+        <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
       </div>
 
       {payable ? (
         <form onSubmit={pay} className="flex flex-wrap items-center gap-2">
-          <select
-            className={`${inputClass} max-w-xs`}
+          <Select
+            className="max-w-xs flex-1"
+            placeholder="حساب / صندوق…"
+            required
+            options={assetOptions}
             value={asset}
             onChange={(e) => setAsset(e.target.value)}
-            required
-          >
-            <option value="">حساب / صندوق…</option>
-            {assetOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          <span className="text-sm text-muted">
-            مبلغ پرداختی: <b className="text-ink">{formatTomanUnit(item.amountToman)}</b>
+          />
+          <span className="text-muted-foreground">
+            مبلغ پرداختی: <b className="text-foreground tabular-nums">{formatTomanUnit(item.amountToman)}</b>
           </span>
-          <button
-            disabled={busy}
-            className="rounded-lg bg-accent px-4 py-2 font-bold text-white disabled:opacity-60"
-          >
+          <Button type="submit" disabled={busy}>
             {busy ? "…" : "پرداخت قسط"}
-          </button>
+          </Button>
         </form>
       ) : null}
 
-      <div className="flex items-center gap-3 text-sm">
-        <button type="button" onClick={toggleHistory} className="text-accent-dark">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="ghost" size="sm" onClick={toggleHistory}>
+          <History className="size-3.5" aria-hidden />
           {open ? "بستن تاریخچه" : `تاریخچه پرداخت‌ها (${item.paidCount})`}
-        </button>
-        <button type="button" onClick={archive} className="text-muted">
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={archive}>
+          <ArchiveRestore className="size-3.5" aria-hidden />
           {item.archived ? "بازگردانی" : "بایگانی"}
-        </button>
+        </Button>
       </div>
 
       {open ? (
-        <ul className="flex flex-col gap-1 border-t border-line pt-2 text-sm">
+        <ul className="flex flex-col divide-y divide-border border-t border-border pt-2">
           {payments.length === 0 ? (
-            <li className="text-muted">پرداختی ثبت نشده است.</li>
+            <li className="py-2 text-muted-foreground">پرداختی ثبت نشده است.</li>
           ) : (
             payments.map((p) => (
-              <li key={p.id} className="flex items-center justify-between">
-                <span>
-                  قسط {p.occurrenceNo} • {formatTomanUnit(p.amountToman)}
+              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span className="flex items-center gap-2">
+                  <Badge variant="outline">{p.occurrenceNo}</Badge>
+                  <b className="tabular-nums">{formatTomanUnit(p.amountToman)}</b>
                 </span>
-                <span className="text-muted">
-                  سررسید {formatJalaliDate(p.dueDate)} • پرداخت {formatJalaliDate(p.paidAt)}
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  سررسید {formatJalaliDate(p.dueDate)}
+                  <CalendarCheck className="size-3.5" aria-hidden />
+                  پرداخت {formatJalaliDate(p.paidAt)}
                 </span>
               </li>
             ))

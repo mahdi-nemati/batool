@@ -3,14 +3,18 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ArrowLeftRight } from "lucide-react";
 import type { AssetKind } from "@batool/types";
 import { ApiClientError } from "@/lib/api/client";
 import { createTransfer } from "@/lib/api/finance";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { MoneyInput } from "@/components/ui/MoneyInput";
+import { Select, type SelectOption } from "@/components/ui/select";
 
-const inputClass =
-  "w-full rounded-lg border border-line bg-white px-3 py-2 text-ink outline-none focus:border-accent";
-const labelClass = "mb-1 block text-sm text-muted";
+const moneyInputClass =
+  "h-10 w-full rounded-lg border border-input bg-background/60 px-3 text-sm text-foreground placeholder:text-muted-foreground/70";
 
 interface Endpoint {
   id: string;
@@ -33,16 +37,18 @@ function parse(value: string): Sel {
     : { kind: value.slice(0, idx) as AssetKind, id: value.slice(idx + 1) };
 }
 
+const endpointOptions = (accounts: Endpoint[], funds: Endpoint[]): SelectOption[] => [
+  ...accounts.map((a) => ({ value: `BANK|${a.id}`, label: `حساب: ${a.name}` })),
+  ...funds.map((f) => ({ value: `FUND|${f.id}`, label: `صندوق: ${f.name}` })),
+];
+
 /**
  * Toman transfer between bank accounts and funds. Gold/USD are deliberately NOT
  * endpoints here: their buy/sell flows have dedicated wallet pages.
  */
 export function TransferForm({ accounts, funds }: Props) {
   const router = useRouter();
-  const options = [
-    ...accounts.map((a) => ({ value: `BANK|${a.id}`, label: `حساب: ${a.name}` })),
-    ...funds.map((f) => ({ value: `FUND|${f.id}`, label: `صندوق: ${f.name}` })),
-  ];
+  const options = endpointOptions(accounts, funds);
 
   const [source, setSource] = useState("");
   const [destination, setDestination] = useState("");
@@ -83,80 +89,70 @@ export function TransferForm({ accounts, funds }: Props) {
   }
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="flex flex-col gap-3 rounded-2xl border border-line bg-panel p-5 shadow-sm"
-    >
-      <h3 className="font-bold">انتقال وجه (تومان)</h3>
-      {error !== null ? (
-        <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
-          {error}
-        </p>
-      ) : null}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label className={labelClass} htmlFor="tr-src">
-            مبدأ
-          </label>
-          <select
-            id="tr-src"
-            required
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            className={inputClass}
-          >
-            <option value="">انتخاب…</option>
-            {options.map((o) => (
-              <option key={`s-${o.value}`} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className={labelClass} htmlFor="tr-dst">
-            مقصد
-          </label>
-          <select
-            id="tr-dst"
-            required
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            className={inputClass}
-          >
-            <option value="">انتخاب…</option>
-            {options.map((o) => (
-              <option key={`d-${o.value}`} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <div>
-        <label className={labelClass} htmlFor="tr-toman">
-          مبلغ (تومان)
-        </label>
-        <MoneyInput id="tr-toman" value={toman} onChange={setToman} className={inputClass} />
-      </div>
-      <button
-        type="submit"
-        disabled={busy}
-        className="self-start rounded-lg bg-accent px-4 py-2 font-bold text-white transition-colors hover:bg-accent-dark disabled:opacity-60"
-      >
-        {busy ? "…" : "ثبت انتقال"}
-      </button>
-      <p className="text-xs text-muted">
-        برای خرید/فروش{" "}
-        <Link href="/dashboard/assets/gold" className="text-accent-dark underline">
-          طلا
-        </Link>{" "}
-        یا{" "}
-        <Link href="/dashboard/assets/usd" className="text-accent-dark underline">
-          دلار
-        </Link>{" "}
-        از صفحات اختصاصی آن‌ها استفاده کنید.
-      </p>
-    </form>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <ArrowLeftRight className="size-4 text-primary" aria-hidden />
+          انتقال وجه
+        </CardTitle>
+        <CardDescription>جابه‌جایی تومان بین حساب‌ها و صندوق‌ها.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={onSubmit} className="flex flex-col gap-3">
+          {error !== null ? (
+            <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
+              {error}
+            </p>
+          ) : null}
+          <div className="space-y-1.5">
+            <Label htmlFor="tr-src">از</Label>
+            <Select
+              id="tr-src"
+              aria-label="مبدأ"
+              required
+              placeholder="مبدأ را انتخاب کنید"
+              options={options}
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="tr-dst">به</Label>
+            <Select
+              id="tr-dst"
+              aria-label="مقصد"
+              required
+              placeholder="مقصد را انتخاب کنید"
+              options={options}
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="tr-toman">مبلغ (تومان)</Label>
+            <MoneyInput
+              id="tr-toman"
+              value={toman}
+              onChange={setToman}
+              className={moneyInputClass}
+            />
+          </div>
+          <Button type="submit" disabled={busy} className="self-start">
+            {busy ? "…" : "ثبت انتقال"}
+          </Button>
+          <p className="text-xs text-muted">
+            برای خرید/فروش{" "}
+            <Link href="/dashboard/assets/gold" className="text-accent-dark underline">
+              طلا
+            </Link>{" "}
+            یا{" "}
+            <Link href="/dashboard/assets/usd" className="text-accent-dark underline">
+              دلار
+            </Link>{" "}
+            از صفحات اختصاصی آن‌ها استفاده کنید.
+          </p>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

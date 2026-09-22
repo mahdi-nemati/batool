@@ -2,13 +2,17 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PiggyBank } from "lucide-react";
 import { ApiClientError } from "@/lib/api/client";
 import { createFund } from "@/lib/api/finance";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 
-const inputClass =
-  "w-full rounded-lg border border-line bg-white px-3 py-2 text-ink outline-none focus:border-accent";
-const labelClass = "mb-1 block text-sm text-muted";
+const moneyInputClass =
+  "h-10 w-full rounded-lg border border-input bg-background/60 px-3 text-sm text-foreground placeholder:text-muted-foreground/70";
 
 export function AddFundForm() {
   const router = useRouter();
@@ -34,42 +38,46 @@ export function AddFundForm() {
   }
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="flex flex-col gap-3 rounded-2xl border border-line bg-panel p-5 shadow-sm"
-    >
-      <h3 className="font-bold">صندوق جدید</h3>
-      {error !== null ? (
-        <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
-          {error}
-        </p>
-      ) : null}
-      <div>
-        <label className={labelClass} htmlFor="fund-name">
-          نام صندوق
-        </label>
-        <input
-          id="fund-name"
-          required
-          maxLength={60}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className={inputClass}
-        />
-      </div>
-      <div>
-        <label className={labelClass} htmlFor="fund-goal">
-          هدف (اختیاری، تومان)
-        </label>
-        <MoneyInput id="fund-goal" value={goal} onChange={setGoal} className={inputClass} />
-      </div>
-      <button
-        type="submit"
-        disabled={busy}
-        className="self-start rounded-lg bg-accent px-4 py-2 font-bold text-white transition-colors hover:bg-accent-dark disabled:opacity-60"
-      >
-        {busy ? "…" : "افزودن صندوق"}
-      </button>
-    </form>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <PiggyBank className="size-4 text-primary" aria-hidden />
+          صندوق جدید
+        </CardTitle>
+        <CardDescription>یک صندوق با هدف پس‌انداز بسازید.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={onSubmit} className="flex flex-col gap-3">
+          {error !== null ? (
+            <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
+              {error}
+            </p>
+          ) : null}
+          <div className="space-y-1.5">
+            <Label htmlFor="fund-name">نام صندوق</Label>
+            <Input
+              id="fund-name"
+              required
+              maxLength={60}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="مثلاً سفر"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="fund-goal">هدف (اختیاری، تومان)</Label>
+            <MoneyInput
+              id="fund-goal"
+              value={goal}
+              onChange={setGoal}
+              className={moneyInputClass}
+            />
+          </div>
+          <Button type="submit" disabled={busy} className="self-start">
+            {busy ? "…" : "افزودن صندوق"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

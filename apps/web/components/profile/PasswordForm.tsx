@@ -2,14 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { KeyRound } from "lucide-react";
 import { ApiClientError } from "@/lib/api/client";
 import { changePassword } from "@/lib/api/auth";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 
-const inputClass =
-  "w-full rounded-lg border border-line bg-white px-3 py-2 text-ink outline-none focus:border-accent";
-const labelClass = "mb-1 block text-sm text-muted";
-
-export function PasswordForm() {
+export function PasswordForm({ className }: { className?: string }) {
   const router = useRouter();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -37,80 +38,63 @@ export function PasswordForm() {
   }
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-6 shadow-sm"
-    >
-      <div>
-        <h2 className="text-lg font-bold">تغییر رمز عبور</h2>
-        <p className="mt-1 text-sm text-muted">پس از تغییر رمز، از همه دستگاه‌ها خارج می‌شوید.</p>
-      </div>
+    <Card className={className}>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <KeyRound className="size-4 text-primary" aria-hidden />
+          تغییر رمز عبور
+        </CardTitle>
+        <CardDescription>پس از تغییر رمز، از همه دستگاه‌ها خارج می‌شوید.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          {error !== null ? (
+            <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
+              {error}
+            </p>
+          ) : null}
 
-      {error !== null ? (
-        <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
-          {error}
-        </p>
-      ) : null}
+          <div className="space-y-1.5">
+            <Label htmlFor="current">رمز عبور فعلی</Label>
+            <PasswordInput
+              id="current"
+              required
+              autoComplete="current-password"
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
+            />
+          </div>
 
-      <div>
-        <label className={labelClass} htmlFor="current">
-          رمز عبور فعلی
-        </label>
-        <input
-          id="current"
-          type="password"
-          dir="ltr"
-          required
-          autoComplete="current-password"
-          value={current}
-          onChange={(e) => setCurrent(e.target.value)}
-          className={inputClass}
-        />
-      </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="next">رمز عبور جدید</Label>
+            <PasswordInput
+              id="next"
+              strength
+              required
+              minLength={8}
+              maxLength={128}
+              value={next}
+              onChange={(e) => setNext(e.target.value)}
+            />
+          </div>
 
-      <div>
-        <label className={labelClass} htmlFor="next">
-          رمز عبور جدید
-        </label>
-        <input
-          id="next"
-          type="password"
-          dir="ltr"
-          required
-          minLength={8}
-          maxLength={128}
-          autoComplete="new-password"
-          value={next}
-          onChange={(e) => setNext(e.target.value)}
-          className={inputClass}
-        />
-      </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="confirm">تکرار رمز عبور جدید</Label>
+            <PasswordInput
+              id="confirm"
+              required
+              minLength={8}
+              maxLength={128}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
+          </div>
 
-      <div>
-        <label className={labelClass} htmlFor="confirm">
-          تکرار رمز عبور جدید
-        </label>
-        <input
-          id="confirm"
-          type="password"
-          dir="ltr"
-          required
-          minLength={8}
-          maxLength={128}
-          autoComplete="new-password"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          className={inputClass}
-        />
-      </div>
-
-      <button
-        type="submit"
-        disabled={busy}
-        className="self-start rounded-lg bg-accent px-4 py-2 font-bold text-white transition-colors hover:bg-accent-dark disabled:opacity-60"
-      >
-        {busy ? "در حال ثبت…" : "تغییر رمز عبور"}
-      </button>
-    </form>
+          <Button type="submit" disabled={busy} className="self-start">
+            {busy ? "در حال ثبت…" : "تغییر رمز عبور"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

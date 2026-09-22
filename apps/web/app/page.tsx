@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import type { HealthDto, ReadinessDto } from "@batool/types";
 import { API_ORIGIN, request } from "@/lib/api/client";
 import { getMeServer } from "@/lib/api/auth";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +43,7 @@ export default async function HomePage() {
         {user !== null ? (
           <Link
             href="/dashboard"
-            className="w-full max-w-xs rounded-lg bg-accent px-4 py-3 text-center font-bold text-white transition-colors hover:bg-accent-dark"
+            className="flex w-full max-w-xs items-center justify-center rounded-xl bg-primary px-4 py-3 text-center text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 active:scale-[0.98]"
           >
             ادامه به داشبورد
           </Link>
@@ -49,13 +51,13 @@ export default async function HomePage() {
           <div className="flex w-full max-w-xs gap-3">
             <Link
               href="/login"
-              className="flex-1 rounded-lg bg-accent px-4 py-3 text-center font-bold text-white transition-colors hover:bg-accent-dark"
+              className="flex flex-1 items-center justify-center rounded-xl bg-primary px-4 py-3 text-center text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
             >
               ورود
             </Link>
             <Link
               href="/register"
-              className="flex-1 rounded-lg border border-accent px-4 py-3 text-center font-bold text-accent-dark transition-colors hover:bg-accent/10"
+              className="flex flex-1 items-center justify-center rounded-xl border border-input bg-background/60 px-4 py-3 text-center text-sm font-semibold text-foreground transition-colors hover:bg-accent-soft hover:text-foreground"
             >
               ثبت‌نام
             </Link>
@@ -63,30 +65,32 @@ export default async function HomePage() {
         )}
       </section>
 
-      <section className="rounded-2xl border border-line bg-panel p-6 text-sm shadow-sm">
-        <h2 className="mb-3 font-bold">وضعیت سامانه (فاز ۱)</h2>
-        <p className="mb-3 text-muted">
-          اتصال پیش‌بینی‌شده: <code className="text-accent-dark">{API_ORIGIN}</code>
-        </p>
-        <div className="flex items-center justify-between border-b border-line py-2">
-          <span className="text-muted">سرویس API</span>
-          <Pill ok={liveness.ok} />
-        </div>
-        <div className="flex items-center justify-between py-2">
-          <span className="text-muted">اتصال پایگاه داده</span>
-          <Pill ok={readiness.ok} />
-        </div>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>وضعیت سامانه (فاز ۱)</CardTitle>
+          <CardDescription>
+            اتصال پیش‌بینی‌شده: <code className="text-accent-dark">{API_ORIGIN}</code>
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col divide-y divide-border text-sm">
+            <div className="flex items-center justify-between py-2">
+              <span className="text-muted">سرویس API</span>
+              <Pill ok={liveness.ok} />
+            </div>
+            <div className="flex items-center justify-between py-2">
+              <span className="text-muted">اتصال پایگاه داده</span>
+              <Pill ok={readiness.ok} />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </main>
   );
 }
 
 function Pill({ ok }: { ok: boolean }) {
   return (
-    <span
-      className={`rounded-full px-3 py-1 text-xs font-bold text-white ${ok ? "bg-accent" : "bg-danger"}`}
-    >
-      {ok ? "سالم" : "در دسترس نیست"}
-    </span>
+    <Badge variant={ok ? "default" : "destructive"}>{ok ? "سالم" : "در دسترس نیست"}</Badge>
   );
 }

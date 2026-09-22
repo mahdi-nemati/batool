@@ -20,12 +20,19 @@ export default async function ProfilePage() {
   }
 
   return (
-    <section className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold">پروفایل</h1>
-      <ProfileForm
-        initial={{ nickname: user.nickname, email: user.email, username: user.username }}
-      />
-      <PasswordForm />
-    </section>
+    <div className="flex flex-col gap-6">
+      <header>
+        <p className="text-sm text-muted">حساب کاربری</p>
+        <h1 className="text-3xl font-bold">پروفایل</h1>
+        <p className="mt-1 text-sm text-muted">مشخصات و امنیت حساب شما</p>
+      </header>
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        <ProfileForm
+          initial={{ nickname: user.nickname, email: user.email, username: user.username }}
+          className="flex-1"
+        />
+        <PasswordForm className="flex-1" />
+      </div>
+    </div>
   );
 }

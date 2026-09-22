@@ -1,8 +1,13 @@
 import Link from "next/link";
+import { Banknote, Coins, History } from "lucide-react";
 import type { TransferDto } from "@batool/types";
 import { WalletTradeForm } from "@/components/finance/WalletTradeForm";
 import { formatQuantity, formatTomanUnit } from "@/lib/formatting/persian";
 import { formatJalaliDate } from "@/lib/formatting/jalali";
+import { AssetKind } from "@batool/types";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/cn";
 
 type WalletKind = "GOLD" | "USD";
 
@@ -26,68 +31,89 @@ function quantityOf(t: TransferDto, asset: WalletKind): string {
 }
 
 export function WalletPage({ asset, title, unit, balance, createdAt, accounts, transfers }: Props) {
-  return (
-    <div className="flex flex-col gap-8">
-      <section>
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">{title}</h1>
-          <Link href="/dashboard/assets" className="text-sm text-muted hover:text-ink">
-            → همه دارایی‌ها
-          </Link>
-        </div>
-        <div className="rounded-xl border border-line bg-panel p-4">
-          <p className="text-sm text-muted">موجودی فعلی ({title})</p>
-          <p className="mt-1 text-2xl font-bold text-ink">
-            {formatQuantity(balance)} {unit}
-          </p>
-          <p className="mt-2 text-xs text-muted">
-            این کیف پول ارزش تومانی ندارد و به تومان تبدیل یا نمایش داده نمی‌شود.
-          </p>
-          <p className="mt-1 text-xs text-muted">تاریخ ایجاد: {formatJalaliDate(createdAt)}</p>
-        </div>
-      </section>
+  const Icon = asset === AssetKind.GOLD ? Coins : Banknote;
 
-      <section>
-        <h2 className="mb-3 text-xl font-bold">خرید و فروش</h2>
+  return (
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-sm text-muted">دارایی‌ها</p>
+          <h1 className="text-3xl font-bold">{title}</h1>
+        </div>
+        <Link href="/dashboard/assets" className="text-sm font-bold text-primary hover:underline">
+          → همه دارایی‌ها
+        </Link>
+      </header>
+
+      <Card className="p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm text-muted">موجودی فعلی</p>
+            <p className="mt-1 text-3xl font-bold tabular-nums">
+              {formatQuantity(balance)} {unit}
+            </p>
+          </div>
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+            <Icon className="size-5 text-primary" aria-hidden />
+          </span>
+        </div>
+        <p className="mt-3 text-xs text-muted">
+          این کیف پول ارزش تومانی ندارد و به تومان تبدیل یا نمایش داده نمی‌شود.
+        </p>
+        <p className="mt-1 text-xs text-muted">تاریخ ایجاد: {formatJalaliDate(createdAt)}</p>
+      </Card>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold">خرید و فروش</h2>
         <WalletTradeForm asset={asset} accounts={accounts} />
       </section>
 
-      <section>
-        <h2 className="mb-3 text-xl font-bold">تاریخچه</h2>
-        {transfers.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-line p-4 text-muted">
-            هنوز خرید یا فروشی ثبت نشده است.
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {transfers.map((t) => {
-              const buy = isBuy(t, asset);
-              return (
-                <li
-                  key={t.id}
-                  className="flex flex-col gap-1 rounded-xl border border-line bg-panel px-4 py-3"
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-ink">{t.description}</span>
-                    <span
-                      className={`shrink-0 font-bold ${buy ? "text-accent-dark" : "text-danger"}`}
-                    >
-                      {buy ? "+" : "−"}
-                      {formatQuantity(quantityOf(t, asset))} {unit}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4 text-sm text-muted">
-                    <span>
-                      {buy ? "پرداخت" : "دریافت"}: {formatTomanUnit(t.amountToman ?? 0)}
-                    </span>
-                    <span>{formatJalaliDate(t.occurredAt)}</span>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="size-4 text-primary" aria-hidden />
+            تاریخچه
+          </CardTitle>
+          <CardDescription>خرید و فروش‌های ثبت‌شده</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {transfers.length === 0 ? (
+            <EmptyState
+              icon={History}
+              title="هنوز خرید یا فروشی ثبت نشده است"
+              description={`با ثبت اولین معامله ${title}، تاریخچه کامل اینجا نمایش داده می‌شود.`}
+            />
+          ) : (
+            <ul className="flex flex-col divide-y divide-border">
+              {transfers.map((t) => {
+                const buy = isBuy(t, asset);
+                return (
+                  <li key={t.id} className="flex flex-col gap-1 py-3 text-sm">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="text-foreground">{t.description}</span>
+                      <span
+                        className={cn(
+                          "shrink-0 font-bold tabular-nums",
+                          buy ? "text-accent-dark" : "text-danger",
+                        )}
+                      >
+                        {buy ? "+" : "−"}
+                        {formatQuantity(quantityOf(t, asset))} {unit}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-4 text-muted-foreground">
+                      <span>
+                        {buy ? "پرداخت" : "دریافت"}: {formatTomanUnit(t.amountToman ?? 0)}
+                      </span>
+                      <span>{formatJalaliDate(t.occurredAt)}</span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

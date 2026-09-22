@@ -1,16 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Check, CirclePlus, Power, Tag } from "lucide-react";
 import type { CategoryDto, CategoryType } from "@batool/types";
 import { ApiClientError } from "@/lib/api/client";
 import { createCategory, listAllCategories, updateCategory } from "@/lib/api/categories";
-
-const inputClass =
-  "w-full rounded-lg border border-line bg-white px-3 py-2 text-ink outline-none focus:border-accent";
-const labelClass = "mb-1 block text-sm text-muted";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/cn";
 
 export function CategoryManager() {
-  const [rows, setRows] = useState<CategoryDto[]>([]);
+  const [rows, setRows] = useState<CategoryDto[] | null>(null);
   const [name, setName] = useState("");
   const [type, setType] = useState<CategoryType>("EXPENSE");
   const [error, setError] = useState<string | null>(null);
@@ -66,84 +72,119 @@ export function CategoryManager() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold">مدیریت دسته‌بندی‌ها</h1>
+      <header>
+        <p className="text-sm text-muted">مدیریت</p>
+        <h1 className="text-3xl font-bold">دسته‌بندی‌ها</h1>
+        <p className="mt-1 text-sm text-muted">دسته‌های درآمد و هزینه برای تراکنش‌ها</p>
+      </header>
+
       {error !== null ? (
         <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
           {error}
         </p>
       ) : null}
 
-      <form
-        onSubmit={onCreate}
-        className="flex flex-wrap items-end gap-3 rounded-2xl border border-line bg-panel p-5"
-      >
-        <div className="min-w-40 flex-1">
-          <label className={labelClass}>نام دسته‌بندی</label>
-          <input
-            className={inputClass}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={40}
-            required
-          />
-        </div>
-        <div>
-          <label className={labelClass}>نوع</label>
-          <select
-            className={inputClass}
-            value={type}
-            onChange={(e) => setType(e.target.value as CategoryType)}
-          >
-            <option value="EXPENSE">هزینه</option>
-            <option value="INCOME">درآمد</option>
-          </select>
-        </div>
-        <button
-          disabled={busy}
-          className="rounded-lg bg-accent px-4 py-2 font-bold text-white disabled:opacity-60"
-        >
-          {busy ? "…" : "افزودن"}
-        </button>
-      </form>
-
-      <div className="flex flex-col gap-2">
-        {rows.map((c) => (
-          <div
-            key={c.id}
-            className="flex items-center gap-2 rounded-xl border border-line bg-panel px-4 py-2"
-          >
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs ${c.type === "INCOME" ? "bg-accent/10 text-accent-dark" : "bg-danger/10 text-danger"}`}
-            >
-              {c.type === "INCOME" ? "درآمد" : "هزینه"}
-            </span>
-            <input
-              className={`${inputClass} max-w-56 ${c.isActive ? "" : "opacity-50"}`}
-              value={drafts[c.id] ?? c.name}
-              onChange={(e) => setDrafts({ ...drafts, [c.id]: e.target.value })}
-              maxLength={40}
-            />
-            {c.isSystem ? <span className="text-xs text-muted">سیستمی</span> : null}
-            {!c.isActive ? <span className="text-xs text-danger">غیرفعال</span> : null}
-            <div className="mr-auto flex items-center gap-2">
-              <button
-                type="button"
-                className="rounded-lg border border-line px-3 py-1 text-sm"
-                onClick={() => onRename(c)}
-              >
-                ذخیره
-              </button>
-              <button
-                type="button"
-                className="rounded-lg border border-line px-3 py-1 text-sm"
-                onClick={() => onToggle(c)}
-              >
-                {c.isActive ? "غیرفعال کردن" : "فعال کردن"}
-              </button>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CirclePlus className="size-4 text-primary" aria-hidden />
+            دسته‌بندی جدید
+          </CardTitle>
+          <CardDescription>بعد از افزودن، در فرم‌های تراکنش در دسترس خواهد بود.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onCreate} className="flex flex-wrap items-end gap-3">
+            <div className="min-w-40 flex-1 space-y-1.5">
+              <Label htmlFor="ct-name">نام دسته‌بندی</Label>
+              <Input
+                id="ct-name"
+                placeholder="مثلاً خوراک، اجاره، حقوق"
+                maxLength={40}
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
-          </div>
-        ))}
-      </div>
+            <div className="min-w-36 space-y-1.5">
+              <Label htmlFor="ct-type">نوع</Label>
+              <Select
+                id="ct-type"
+                options={[
+                  { value: "EXPENSE", label: "هزینه" },
+                  { value: "INCOME", label: "درآمد" },
+                ]}
+                value={type}
+                onChange={(e) => setType(e.target.value as CategoryType)}
+              />
+            </div>
+            <Button type="submit" disabled={busy} className="items-end">
+              {busy ? "…" : "افزودن"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Tag className="size-4 text-primary" aria-hidden />
+            فهرست دسته‌بندی‌ها
+          </CardTitle>
+          <CardDescription>با ذخیره، نام دسته تغییر می‌کند.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {rows === null ? (
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          ) : rows.length === 0 ? (
+            <EmptyState
+              icon={Tag}
+              title="دسته‌ای ثبت نشده است"
+              description="اولین دسته درآمد یا هزینه را بسازید."
+            />
+          ) : (
+            <ul className="flex flex-col divide-y divide-border">
+              {rows.map((c) => (
+                <li key={c.id} className="flex flex-wrap items-center gap-2 py-3 text-sm">
+                  <Badge
+                    className={cn(
+                      "shrink-0",
+                      c.type === "INCOME" ? "bg-accent/10 text-accent-dark" : "bg-danger/10 text-danger",
+                    )}
+                  >
+                    {c.type === "INCOME" ? "درآمد" : "هزینه"}
+                  </Badge>
+                  <Input
+                    className={cn("max-w-56", !c.isActive && "opacity-50")}
+                    maxLength={40}
+                    value={drafts[c.id] ?? c.name}
+                    onChange={(e) => setDrafts({ ...drafts, [c.id]: e.target.value })}
+                  />
+                  {c.isSystem ? (
+                    <span className="text-xs text-muted-foreground">سیستمی</span>
+                  ) : null}
+                  {!c.isActive ? (
+                    <span className="text-xs text-danger">غیرفعال</span>
+                  ) : null}
+                  <div className="mr-auto flex items-center gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => onRename(c)}>
+                      <Check className="size-3.5" aria-hidden />
+                      ذخیره
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => onToggle(c)}>
+                      <Power className="size-3.5" aria-hidden />
+                      {c.isActive ? "غیرفعال کردن" : "فعال کردن"}
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

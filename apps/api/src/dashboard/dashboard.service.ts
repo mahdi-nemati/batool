@@ -137,8 +137,6 @@ export class DashboardService {
       banks,
       funds,
       movements,
-      gold,
-      usd,
       monthlyRows,
       recentRows,
       debtSummary,
@@ -151,14 +149,6 @@ export class DashboardService {
         by: ["assetKind", "assetId"],
         where: { userId },
         _sum: { amountToman: true, amountGram: true, amountUsd: true },
-      }),
-      this.prisma.assetMovement.aggregate({
-        where: { userId, assetKind: "GOLD" },
-        _sum: { amountGram: true },
-      }),
-      this.prisma.assetMovement.aggregate({
-        where: { userId, assetKind: "USD" },
-        _sum: { amountUsd: true },
       }),
       this.prisma.financialTransaction.groupBy({
         by: ["type", "categoryId"],
@@ -197,6 +187,14 @@ export class DashboardService {
       (sum, item) => sum + item.balanceToman,
       0,
     );
+    const goldGram = movements
+      .filter((row) => row.assetKind === "GOLD")
+      .reduce((sum, row) => sum + Number(row._sum.amountGram ?? 0n), 0)
+      .toString();
+    const usd = movements
+      .filter((row) => row.assetKind === "USD")
+      .reduce((sum, row) => sum + Number(row._sum.amountUsd ?? 0n), 0)
+      .toString();
 
     const categoryIds = monthlyRows.map((row) => row.categoryId);
     const categories = await this.prisma.category.findMany({ where: { id: { in: categoryIds } } });
@@ -234,10 +232,7 @@ export class DashboardService {
       month,
       monthOptions: monthOptions(resolved.year, resolved.month),
       balances: { banks: bankBalances, funds: fundBalances, totalToman },
-      quantities: {
-        goldGram: (gold._sum.amountGram ?? 0).toString(),
-        usd: (usd._sum.amountUsd ?? 0).toString(),
-      },
+      quantities: { goldGram, usd },
       monthly: { incomeToman, expenseToman, netCashFlowToman: incomeToman - expenseToman },
       expenseCategories,
       recentTransactions,
@@ -322,39 +317,104 @@ export class DashboardService {
       const value = shiftMonth(resolved.year, resolved.month, index - 6);
       return { ...value, view: monthView(value.year, value.month) };
     });
-    const rowsByMonth = await Promise.all(
-      monthValues.map((value) =>
-        this.prisma.financialTransaction.groupBy({
-          by: ["type", "categoryId"],
-          where: {
-            userId,
-            occurredAt: { gte: new Date(value.view.start), lt: new Date(value.view.end) },
-          },
-          _sum: { amountToman: true },
-        }),
-      ),
-    );
-    const allRows = rowsByMonth.flat();
-    const categories = await this.prisma.category.findMany({
-      where: { id: { in: [...new Set(allRows.map((row) => row.categoryId))] } },
+    const firstMonth = monthValues[0];
+    const lastMonth = monthValues[6];
+    if (firstMonth === undefined || lastMonth === undefined) {
+      throw ApiError.validation("month", "ماه انتخاب‌شده معتبر نیست");
+    }
+
+    // One index-range scan over the whole 7-month window; month, type and
+    // category buckets are derived in JS. This replaces seven monthly groupBy
+    // queries and the previous nested summary() call.
+    const windowRows = await this.prisma.financialTransaction.findMany({
+      where: {
+        userId,
+        occurredAt: {
+          gte: new Date(firstMonth.view.start),
+          lt: new Date(lastMonth.view.end),
+        },
+      },
+      select: { type: true, categoryId: true, amountToman: true, occurredAt: true },
     });
+    const categoryIds = [...new Set(windowRows.map((row) => row.categoryId))];
+    const [
+      banks,
+      funds,
+      movements,
+      categories,
+      debtSummary,
+      installments,
+      paymentCounts,
+      profile,
+    ] = await Promise.all([
+      this.prisma.bankAccount.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
+      this.prisma.fund.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
+      this.prisma.assetMovement.groupBy({
+        by: ["assetKind", "assetId"],
+        where: { userId },
+        _sum: { amountToman: true, amountGram: true, amountUsd: true },
+      }),
+      this.prisma.category.findMany({ where: { id: { in: categoryIds } } }),
+      this.debts.summary(userId),
+      this.prisma.installment.findMany({ where: { userId, archived: false } }),
+      this.prisma.installmentPayment.groupBy({
+        by: ["installmentId"],
+        where: { installment: { userId } },
+        _count: { _all: true },
+      }),
+      this.prisma.setarProfile.findUnique({ where: { userId } }),
+    ]);
+    const [sessions, tuitionPayments] = profile
+      ? await Promise.all([
+          this.prisma.setarSession.count({ where: { setarProfileId: profile.id } }),
+          this.prisma.setarTuitionPayment.count({ where: { setarProfileId: profile.id } }),
+        ])
+      : [0, 0];
+    const sessionsInCurrentCycle = Math.min(
+      Math.max(sessions - tuitionPayments * SESSIONS_PER_PAYMENT, 0),
+      SESSIONS_PER_PAYMENT,
+    );
+
     const names = new Map(categories.map((category) => [category.id, category.name]));
-    const totals = (rows: (typeof rowsByMonth)[number]) => {
-      const incomeToman = rows
-        .filter((row) => row.type === "INCOME")
-        .reduce((sum, row) => sum + Number(row._sum.amountToman ?? 0n), 0);
-      const expenseToman = rows
-        .filter((row) => row.type === "EXPENSE")
-        .reduce((sum, row) => sum + Number(row._sum.amountToman ?? 0n), 0);
+    type TrendRow = {
+      type: "INCOME" | "EXPENSE";
+      categoryId: string;
+      amountToman: number;
+    };
+    const buckets: TrendRow[][] = monthValues.map(() => []);
+    for (const row of windowRows) {
+      const timestamp = row.occurredAt.getTime();
+      for (let index = 0; index < monthValues.length; index += 1) {
+        const value = monthValues[index];
+        if (value === undefined) continue;
+        const start = new Date(value.view.start).getTime();
+        const end = new Date(value.view.end).getTime();
+        if (timestamp >= start && timestamp < end) {
+          buckets[index]?.push({
+            type: row.type,
+            categoryId: row.categoryId,
+            amountToman: Number(row.amountToman),
+          });
+          break;
+        }
+      }
+    }
+    const totals = (rows: TrendRow[]) => {
+      let incomeToman = 0;
+      let expenseToman = 0;
+      for (const row of rows) {
+        if (row.type === "INCOME") incomeToman += row.amountToman;
+        else expenseToman += row.amountToman;
+      }
       return { incomeToman, expenseToman, netCashFlowToman: incomeToman - expenseToman };
     };
-    const breakdown = (rows: (typeof rowsByMonth)[number], type: "INCOME" | "EXPENSE") => {
+    const breakdown = (rows: TrendRow[], type: "INCOME" | "EXPENSE") => {
       const values = rows
         .filter((row) => row.type === type)
         .map((row) => ({
           categoryId: row.categoryId,
           name: names.get(row.categoryId) ?? "دسته‌بندی حذف‌شده",
-          amountToman: Number(row._sum.amountToman ?? 0n),
+          amountToman: row.amountToman,
           percentage: 0,
         }));
       const total = values.reduce((sum, value) => sum + value.amountToman, 0);
@@ -363,20 +423,24 @@ export class DashboardService {
       }
       return values.sort((a, b) => b.amountToman - a.amountToman);
     };
-    const currentRows = rowsByMonth[6] ?? [];
-    const previousRows = rowsByMonth[5] ?? [];
-    const current = totals(currentRows);
-    const previous = totals(previousRows);
-    const summary = await this.summary(userId, rawMonth);
-    const [installments, profile] = await Promise.all([
-      this.prisma.installment.findMany({ where: { userId, archived: false } }),
-      this.prisma.setarProfile.findUnique({ where: { userId } }),
-    ]);
-    const paymentCounts = await this.prisma.installmentPayment.groupBy({
-      by: ["installmentId"],
-      where: { installment: { userId } },
-      _count: { _all: true },
+    const current = totals(buckets[6] ?? []);
+    const previous = totals(buckets[5] ?? []);
+
+    const balanceByAsset = new Map(
+      movements.map((row) => [`${row.assetKind}:${row.assetId}`, row._sum.amountToman ?? 0n]),
+    );
+    const toBalance = (
+      asset: { id: string; name: string; isActive?: boolean },
+      kind: "BANK" | "FUND",
+    ): DashboardBalanceDto => ({
+      id: asset.id,
+      name: asset.name,
+      isActive: asset.isActive ?? true,
+      balanceToman: Number(balanceByAsset.get(`${kind}:${asset.id}`) ?? 0n),
     });
+    const bankBalances = banks.map((bank) => toBalance(bank, "BANK"));
+    const fundBalances = funds.map((fund) => toBalance({ ...fund, isActive: true }, "FUND"));
+
     const paidMap = new Map(paymentCounts.map((row) => [row.installmentId, row._count._all]));
     let upcoming = 0;
     let overdue = 0;
@@ -392,16 +456,6 @@ export class DashboardService {
         else upcoming += 1;
       }
     }
-    const [sessions, tuitionPayments] = profile
-      ? await Promise.all([
-          this.prisma.setarSession.count({ where: { setarProfileId: profile.id } }),
-          this.prisma.setarTuitionPayment.count({ where: { setarProfileId: profile.id } }),
-        ])
-      : [0, 0];
-    const sessionsInCurrentCycle = Math.min(
-      Math.max(sessions - tuitionPayments * SESSIONS_PER_PAYMENT, 0),
-      SESSIONS_PER_PAYMENT,
-    );
     return {
       month,
       monthOptions: monthOptions(resolved.year, resolved.month),
@@ -411,14 +465,14 @@ export class DashboardService {
         previousExpenseToman: previous.expenseToman,
         previousNetCashFlowToman: previous.netCashFlowToman,
       },
-      expenseCategories: breakdown(currentRows, "EXPENSE"),
-      incomeCategories: breakdown(currentRows, "INCOME"),
+      expenseCategories: breakdown(buckets[6] ?? [], "EXPENSE"),
+      incomeCategories: breakdown(buckets[6] ?? [], "INCOME"),
       trend: monthValues.map((value, index) => ({
         month: value.view.key,
         label: value.view.label,
-        ...totals(rowsByMonth[index] ?? []),
+        ...totals(buckets[index] ?? []),
       })),
-      debtSummary: summary.debtSummary,
+      debtSummary,
       installments: {
         active: installments.length,
         upcoming,
@@ -427,11 +481,20 @@ export class DashboardService {
         remaining,
       },
       assets: {
-        banks: summary.balances.banks,
-        funds: summary.balances.funds,
-        totalToman: summary.balances.totalToman,
-        goldGram: summary.quantities.goldGram,
-        usd: summary.quantities.usd,
+        banks: bankBalances,
+        funds: fundBalances,
+        totalToman: [...bankBalances, ...fundBalances].reduce(
+          (sum, item) => sum + item.balanceToman,
+          0,
+        ),
+        goldGram: movements
+          .filter((row) => row.assetKind === "GOLD")
+          .reduce((sum, row) => sum + Number(row._sum.amountGram ?? 0n), 0)
+          .toString(),
+        usd: movements
+          .filter((row) => row.assetKind === "USD")
+          .reduce((sum, row) => sum + Number(row._sum.amountUsd ?? 0n), 0)
+          .toString(),
       },
       setar: {
         totalSessions: sessions,

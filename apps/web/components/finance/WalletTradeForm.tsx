@@ -5,11 +5,15 @@ import { useState } from "react";
 import { AssetKind } from "@batool/types";
 import { ApiClientError } from "@/lib/api/client";
 import { createTransfer } from "@/lib/api/finance";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { MoneyInput } from "@/components/ui/MoneyInput";
+import { cn } from "@/lib/cn";
 
-const inputClass =
-  "w-full rounded-lg border border-line bg-white px-3 py-2 text-ink outline-none focus:border-accent";
-const labelClass = "mb-1 block text-sm text-muted";
+const moneyInputClass =
+  "h-10 w-full rounded-lg border border-input bg-background/60 px-3 text-sm text-foreground placeholder:text-muted-foreground/70";
 
 type WalletKind = "GOLD" | "USD";
 
@@ -102,27 +106,27 @@ export function WalletTradeForm({ asset, accounts }: Props) {
   return (
     <form
       onSubmit={onSubmit}
-      className="flex flex-col gap-3 rounded-2xl border border-line bg-panel p-5 shadow-sm"
+      className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 text-card-foreground shadow-soft"
     >
-      <div className="flex items-center justify-between">
-        <h3 className="font-bold">{side === "BUY" ? `خرید ${m.title}` : `فروش ${m.title}`}</h3>
-        <div className="flex rounded-lg border border-line p-0.5 text-sm">
-          <button
-            type="button"
-            onClick={() => setSide("BUY")}
-            aria-pressed={side === "BUY"}
-            className={`rounded-md px-3 py-1 ${side === "BUY" ? "bg-accent text-white" : "text-muted"}`}
-          >
-            خرید
-          </button>
-          <button
-            type="button"
-            onClick={() => setSide("SELL")}
-            aria-pressed={side === "SELL"}
-            className={`rounded-md px-3 py-1 ${side === "SELL" ? "bg-accent text-white" : "text-muted"}`}
-          >
-            فروش
-          </button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-base font-semibold leading-6">
+          {side === "BUY" ? `خرید ${m.title}` : `فروش ${m.title}`}
+        </h3>
+        <div className="flex rounded-lg border border-input bg-background/60 p-0.5">
+          {(["BUY", "SELL"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              aria-pressed={side === s}
+              onClick={() => setSide(s)}
+              className={cn(
+                "h-8 flex-1 rounded-md px-3 text-sm font-semibold transition-colors",
+                side === s ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {s === "BUY" ? "خرید" : "فروش"}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -133,62 +137,62 @@ export function WalletTradeForm({ asset, accounts }: Props) {
       ) : null}
 
       {accounts.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-line px-3 py-2 text-sm text-muted">
+        <p className="rounded-lg border border-dashed border-input px-3 py-2 text-sm text-muted">
           برای خرید و فروش ابتدا یک حساب بانکی بسازید.
         </p>
       ) : (
-        <div>
-          <label className={labelClass} htmlFor="wt-bank">
+        <div className="space-y-1.5">
+          <Label htmlFor="wt-bank">
             {side === "BUY" ? "برداشت از حساب" : "واریز به حساب"}
-          </label>
-          <select
+          </Label>
+          <Select
             id="wt-bank"
             required
+            placeholder="انتخاب…"
+            options={accounts.map((a) => ({ value: a.id, label: a.name }))}
             value={bank}
             onChange={(e) => setBank(e.target.value)}
-            className={inputClass}
-          >
-            <option value="">انتخاب…</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       )}
 
-      <div>
-        <label className={labelClass} htmlFor="wt-qty">
-          مقدار ({m.unit})
-        </label>
-        <input
+      <div className="space-y-1.5">
+        <Label htmlFor="wt-qty">مقدار ({m.unit})</Label>
+        <Input
           id="wt-qty"
           dir="ltr"
           inputMode="decimal"
+          placeholder="مثلاً ۱٫۵"
           value={quantity}
           onChange={(e) => setQuantity(e.target.value.replace(/[^\d.]/g, ""))}
-          className={`${inputClass} ${quantity.length > 0 && !quantityValid ? "border-danger" : ""}`}
+          {...(quantity.length > 0 && !quantityValid
+            ? { error: `مقدار ${m.unit} معتبر نیست` }
+            : {})}
         />
       </div>
 
-      <div>
-        <label className={labelClass} htmlFor="wt-toman">
-          مبلغ (تومان)
-        </label>
-        <MoneyInput id="wt-toman" value={toman} onChange={setToman} className={inputClass} />
-        <p className="mt-1 text-xs text-muted">
+      <div className="space-y-1.5">
+        <Label htmlFor="wt-toman">مبلغ (تومان)</Label>
+        <MoneyInput
+          id="wt-toman"
+          className={moneyInputClass}
+          placeholder="مثلاً ۴۵۰٬۰۰۰"
+          value={toman}
+          onChange={setToman}
+        />
+        <p className="text-xs text-muted-foreground">
           این مبلغ فقط در تاریخچه ثبت می‌شود و برای ارزش‌گذاری {m.title} به کار نمی‌رود.
         </p>
       </div>
 
-      <button
+      <Button
         type="submit"
+        variant={side === "BUY" ? "default" : "destructive"}
         disabled={busy || accounts.length === 0}
-        className="self-start rounded-lg bg-accent px-4 py-2 font-bold text-white transition-colors hover:bg-accent-dark disabled:opacity-60"
+        className="self-start"
       >
         {busy ? "…" : side === "BUY" ? `ثبت خرید ${m.title}` : `ثبت فروش ${m.title}`}
-      </button>
+      </Button>
     </form>
   );
 }

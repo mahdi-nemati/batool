@@ -2,13 +2,17 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Landmark } from "lucide-react";
 import { ApiClientError } from "@/lib/api/client";
 import { createBankAccount } from "@/lib/api/finance";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 
-const inputClass =
-  "w-full rounded-lg border border-line bg-white px-3 py-2 text-ink outline-none focus:border-accent";
-const labelClass = "mb-1 block text-sm text-muted";
+const moneyInputClass =
+  "h-10 w-full rounded-lg border border-input bg-background/60 px-3 text-sm text-foreground placeholder:text-muted-foreground/70";
 
 export function AddAccountForm() {
   const router = useRouter();
@@ -34,42 +38,46 @@ export function AddAccountForm() {
   }
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="flex flex-col gap-3 rounded-2xl border border-line bg-panel p-5 shadow-sm"
-    >
-      <h3 className="font-bold">حساب بانکی جدید</h3>
-      {error !== null ? (
-        <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
-          {error}
-        </p>
-      ) : null}
-      <div>
-        <label className={labelClass} htmlFor="acc-name">
-          نام حساب
-        </label>
-        <input
-          id="acc-name"
-          required
-          maxLength={60}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className={inputClass}
-        />
-      </div>
-      <div>
-        <label className={labelClass} htmlFor="acc-initial">
-          مبلغ اولیه (تومان)
-        </label>
-        <MoneyInput id="acc-initial" value={initial} onChange={setInitial} className={inputClass} />
-      </div>
-      <button
-        type="submit"
-        disabled={busy}
-        className="self-start rounded-lg bg-accent px-4 py-2 font-bold text-white transition-colors hover:bg-accent-dark disabled:opacity-60"
-      >
-        {busy ? "…" : "افزودن حساب"}
-      </button>
-    </form>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Landmark className="size-4 text-primary" aria-hidden />
+          حساب بانکی جدید
+        </CardTitle>
+        <CardDescription>یک حساب با موجودی اولیه بسازید.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={onSubmit} className="flex flex-col gap-3">
+          {error !== null ? (
+            <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
+              {error}
+            </p>
+          ) : null}
+          <div className="space-y-1.5">
+            <Label htmlFor="acc-name">نام حساب</Label>
+            <Input
+              id="acc-name"
+              required
+              maxLength={60}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="مثلاً حساب روزمره"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="acc-initial">موجودی اولیه (تومان)</Label>
+            <MoneyInput
+              id="acc-initial"
+              value={initial}
+              onChange={setInitial}
+              className={moneyInputClass}
+            />
+          </div>
+          <Button type="submit" disabled={busy} className="self-start">
+            {busy ? "…" : "افزودن حساب"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
