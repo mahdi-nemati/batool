@@ -119,7 +119,10 @@ export function DashboardClient() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <TransactionsPanel transactions={summary.recentTransactions} />
-        <DebtsPanel debtSummary={summary.debtSummary} setar={summary.obligations.setar} />
+        <div className="flex flex-col gap-4">
+          <DebtsPanel debtSummary={summary.debtSummary} />
+          <SetarPanel setar={summary.obligations.setar} />
+        </div>
       </div>
 
       <AddTransactionDialog
@@ -501,15 +504,13 @@ function TransactionsPanel({
 
 function DebtsPanel({
   debtSummary,
-  setar,
   className,
 }: {
   debtSummary: DashboardSummaryDto["debtSummary"];
-  setar: DashboardSummaryDto["obligations"]["setar"];
   className?: string | undefined;
 }) {
   return (
-    <Panel className={className} title="بدهی‌ها و سه‌تار">
+    <Panel className={className} title="بدهی‌ها">
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div>
           <p className="text-xs text-muted">طلب از دیگران</p>
@@ -523,9 +524,24 @@ function DebtsPanel({
       <Link href="/dashboard/counterparties" className="mt-4 inline-block text-sm font-bold text-primary">
         جزئیات بدهی‌ها ←
       </Link>
-      <div className="mt-4 border-t border-line pt-3 text-sm">
-        <b>سه‌تار:</b> {setar.sessionsInCurrentCycle} از ۴ جلسه چرخه جاری · چرخه {setar.currentCycleNo}
-      </div>
+    </Panel>
+  );
+}
+
+function SetarPanel({
+  setar,
+  className,
+}: {
+  setar: DashboardSummaryDto["obligations"]["setar"];
+  className?: string | undefined;
+}) {
+  return (
+    <Panel className={className} title="سه‌تار">
+      <p className="text-sm">
+        <b>{setar.sessionsInCurrentCycle} از ۴</b>
+        <span className="text-muted"> جلسه چرخه جاری</span>
+        <span className="text-muted"> · چرخه {setar.currentCycleNo}</span>
+      </p>
     </Panel>
   );
 }

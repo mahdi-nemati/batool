@@ -29,12 +29,17 @@
   --color-turquoise-800: #135a56;
   --color-turquoise-900: #0f4a47;
 
-  /* --- Batool strength aliases (reference the scale, no duplicates) --- */
-  --color-accent-teal: var(--color-turquoise-600);
-  --color-accent-teal-dark: var(--color-turquoise-700);
-  --color-accent-dark: var(--color-accent-teal-dark);
+  /* --- Semantic money tokens: income / expense / saving ---
+     Meaning-first. Components read these (or the aliases below),
+     never raw scale stops. Dark theme overrides them in
+     [data-theme="turquoise"]; see the remap block there. --- */
+  --color-income: var(--color-turquoise-700);
+  --color-saving: var(--color-turquoise-600);
+  --color-expense: var(--color-danger);
+
+  /* --- Batool language aliases (reference semantics, no duplicates) --- */
+  --color-accent-dark: var(--color-income);
   --color-accent-soft: var(--color-turquoise-100);
-  --color-muted-text: var(--color-muted);
 
   /* --- Status colors for legal feedback (e.g. PasswordInput strength meter) --- */
   --color-success: #2f7d5c;
@@ -102,6 +107,23 @@
   --brand: oklch(0.88 0.1 185);
   --brand-foreground: oklch(0.16 0.04 200);
   --radius: 0.75rem;
+}
+
+/* Semantic money tokens follow the theme so income/expense/saving (and the
+   aliases accent-dark / accent-soft / danger) adapt to dark, never hardcoded. */
+[data-theme="turquoise"] {
+  --color-income: oklch(0.8 0.11 190);
+  --color-saving: oklch(0.74 0.11 185);
+  --color-expense: oklch(0.72 0.18 22);
+  --color-danger: var(--color-expense);
+  --color-accent-dark: var(--color-income);
+  --color-accent-soft: oklch(0.22 0.02 205);
+
+  /* Legal feedback colors get a dark-friendly lightness. */
+  --color-success: oklch(0.72 0.14 155);
+  --color-warning: oklch(0.74 0.13 70);
+
+  --destructive: oklch(0.68 0.18 22);
 }
 
 /* Legacy aliases follow the turquoise tokens so components that still spell

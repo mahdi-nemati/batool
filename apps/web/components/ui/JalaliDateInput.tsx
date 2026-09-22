@@ -63,7 +63,7 @@ export function JalaliDateInput({
       </button>
       {open ? (
         <div
-          className="absolute z-30 mt-2 w-72 rounded-2xl border border-line bg-panel p-3 shadow-xl"
+          className="absolute z-30 mt-2 w-72 rounded-xl border border-line bg-panel p-3 shadow-elevated"
           dir="rtl"
         >
           <div className="mb-2 flex items-center justify-between">
