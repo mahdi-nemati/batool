@@ -23,6 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MoneyInput } from "@/components/ui/MoneyInput";
+import { Progress } from "@/components/ui/progress";
 import { JalaliDateInput } from "@/components/ui/JalaliDateInput";
 import { cn } from "@/lib/cn";
 
@@ -34,26 +35,26 @@ interface AssetOpt {
   label: string;
 }
 
-function statusMeta(s: InstallmentDto["status"]): { text: string; className: string } {
+function statusMeta(s: InstallmentDto["status"]): { text: string } {
   switch (s) {
     case "UPCOMING":
-      return { text: "نزدیک", className: "" };
+      return { text: "نزدیک" };
     case "DUE":
-      return { text: "سررسید امروز", className: "" };
+      return { text: "سررسید امروز" };
     case "OVERDUE":
-      return { text: "معوق", className: "" };
+      return { text: "معوق" };
     case "COMPLETED":
-      return { text: "تکمیل‌شده", className: "bg-accent/10 text-accent-dark" };
+      return { text: "تکمیل‌شده" };
     case "ARCHIVED":
-      return { text: "بایگانی‌شده", className: "" };
+      return { text: "بایگانی‌شده" };
   }
 }
 
 function StatusBadge({ status }: { status: InstallmentDto["status"] }) {
   const meta = statusMeta(status);
   const variant =
-    status === "OVERDUE" ? "destructive" : status === "DUE" ? "default" : "secondary";
-  return <Badge variant={variant} className={meta.className}>{meta.text}</Badge>;
+    status === "OVERDUE" ? "destructive" : status === "DUE" ? "warning" : status === "COMPLETED" ? "success" : "secondary";
+  return <Badge variant={variant}>{meta.text}</Badge>;
 }
 
 export function InstallmentsClient() {
@@ -338,9 +339,7 @@ function InstallmentCard({
         </span>
         <span>باقی‌مانده: {item.remainingCount}</span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
-        <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
-      </div>
+      <Progress value={pct} label="پیشرفت پرداخت" />
 
       {payable ? (
         <form onSubmit={pay} className="flex flex-wrap items-center gap-2">

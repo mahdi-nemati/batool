@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import { JalaliDateInput } from "@/components/ui/JalaliDateInput";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { MoneyInput } from "@/components/ui/MoneyInput";
@@ -565,8 +566,8 @@ function Filters({ data, onApply }: { data: Data; onApply: (f: TransactionFilter
           ...endpoints,
         ]}
       />
-      <Input type="date" dir="ltr" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="از تاریخ" />
-      <Input type="date" dir="ltr" value={to} onChange={(e) => setTo(e.target.value)} aria-label="تا تاریخ" />
+       <JalaliDateInput id="transactions-from" ariaLabel="از تاریخ" value={from} onChange={setFrom} className={moneyInputClass} />
+       <JalaliDateInput id="transactions-to" ariaLabel="تا تاریخ" value={to} onChange={setTo} className={moneyInputClass} />
       <Button type="button" onClick={apply} variant="default">
         اعمال فیلتر
       </Button>

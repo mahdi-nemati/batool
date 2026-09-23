@@ -32,6 +32,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MoneyInput } from "@/components/ui/MoneyInput";
+import { Progress } from "@/components/ui/progress";
 import { JalaliDateInput } from "@/components/ui/JalaliDateInput";
 import { cn } from "@/lib/cn";
 
@@ -43,7 +44,7 @@ interface AssetOpt {
   label: string;
 }
 
-function statusMeta(s: SetarStatusDto): { text: string; variant: "default" | "secondary" | "destructive"; className?: string } {
+function statusMeta(s: SetarStatusDto): { text: string; variant: "success" | "secondary" | "destructive" } {
   if (s.profile === null) {
     return { text: "", variant: "secondary" };
   }
@@ -54,7 +55,7 @@ function statusMeta(s: SetarStatusDto): { text: string; variant: "default" | "se
     return { text: "قابل پرداخت", variant: "destructive" };
   }
   if (s.paidCycleCount > 0) {
-    return { text: "پرداخت شده / در انتظار چرخه بعد", variant: "default", className: "bg-accent/10 text-accent-dark" };
+    return { text: "پرداخت شده / در انتظار چرخه بعد", variant: "success" };
   }
   return { text: "هنوز قابل پرداخت نیست", variant: "secondary" };
 }
@@ -158,7 +159,7 @@ function SetarView({
             وضعیت شهریه
           </CardTitle>
           {badge.text ? (
-            <Badge variant={badge.variant} className={badge.className}>
+            <Badge variant={badge.variant}>
               {badge.text}
             </Badge>
           ) : null}
@@ -194,9 +195,7 @@ function SetarView({
               </dd>
             </div>
           </dl>
-          <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-secondary">
-            <div className="h-full bg-primary" style={{ width: `${progress}%` }} />
-          </div>
+          <Progress value={progress} label="جلسات چرخه" />
         </CardContent>
       </Card>
 

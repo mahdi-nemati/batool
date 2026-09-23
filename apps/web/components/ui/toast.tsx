@@ -34,7 +34,7 @@ const icons: Record<ToastVariant, typeof Info> = {
 
 const iconTint: Record<ToastVariant, string> = {
   success: "bg-accent-soft text-accent-dark",
-  error: "bg-destructive text-destructive-foreground",
+  error: "bg-error text-destructive-foreground",
   info: "bg-secondary text-secondary-foreground",
 };
 
@@ -185,7 +185,7 @@ export function ToastCard({
           type="button"
           aria-label="بستن"
           onClick={onClose}
-          className="-me-1 -mt-0.5 cursor-pointer rounded p-1 text-muted-foreground hover:text-foreground"
+          className="-me-1 -mt-0.5 cursor-pointer rounded-md p-1 text-muted-foreground hover:text-foreground"
         >
           <X className="size-3.5" aria-hidden />
         </button>

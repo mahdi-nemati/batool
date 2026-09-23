@@ -15,7 +15,7 @@ function withError(node: React.ReactNode, error?: string, errorId?: string) {
   return (
     <div className="space-y-1.5">
       {node}
-      <p id={errorId} className="text-xs text-destructive">
+      <p id={errorId} className="text-label text-error">
         {error}
       </p>
     </div>
@@ -43,14 +43,14 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(function Inp
       aria-invalid={invalid ? true : undefined}
       aria-describedby={error ? errorId : undefined}
       className={cn(
-        "flex w-full min-w-0 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70",
+        "flex w-full min-w-0 bg-transparent text-body text-foreground placeholder:text-muted-foreground/70",
         "disabled:cursor-not-allowed disabled:opacity-50",
         grouped
           ? "h-full px-0 outline-none focus:outline-none focus-visible:outline-none"
           : cn(
               "h-10 rounded-lg border border-input bg-background/60 px-3 transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:border-transparent",
-              invalid && "border-destructive/60",
+              invalid && "border-error/60",
             ),
         className,
       )}
@@ -65,9 +65,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(function Inp
     <div
       dir={dir}
       className={cn(
-        "flex h-10 w-full items-center gap-2 rounded-lg border border-input bg-background/60 px-3 text-sm transition-colors",
+        "flex h-10 w-full items-center gap-2 rounded-lg border border-input bg-background/60 px-3 text-body transition-colors",
         "focus-within:border-transparent focus-within:ring-2 focus-within:ring-ring/60",
-        invalid && "border-destructive/60",
+        invalid && "border-error/60",
       )}
     >
       {startAddon && <span className="shrink-0 text-muted-foreground">{startAddon}</span>}

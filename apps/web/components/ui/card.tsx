@@ -28,7 +28,7 @@ export function CardTitle({ className, as: Tag = "h3", ...props }: CardTitleProp
 }
 
 export function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
-  return <p className={cn("text-sm leading-5 text-muted-foreground", className)} {...props} />;
+  return <p className={cn("text-body leading-5 text-muted-foreground", className)} {...props} />;
 }
 
 export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

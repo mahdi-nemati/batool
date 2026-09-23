@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BarChart3, TrendingUp, TrendingDown, Scale, Landmark } from "lucide-react";
-import type { DashboardStatisticsDto } from "@batool/types";
+import { BarChart3, TrendingUp, TrendingDown, Scale } from "lucide-react";
+import type { DashboardCategoryDto, DashboardStatisticsDto } from "@batool/types";
 import { ApiClientError } from "@/lib/api/client";
 import { getDashboardStatistics } from "@/lib/api/dashboard";
 import { formatQuantity, formatTomanUnit } from "@/lib/formatting/persian";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Chart, type ChartType } from "@/components/ui/chart";
+import { Button } from "@/components/ui/button";
+import { DataTable } from "@/components/ui/data-table";
 import { cn } from "@/lib/cn";
 
 const decimal = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 2 });
@@ -18,6 +20,7 @@ const decimal = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 2 });
 export default function StatisticsPage() {
   const [data, setData] = useState<DashboardStatisticsDto | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [chartType, setChartType] = useState<ChartType>("line");
   useEffect(() => {
     getDashboardStatistics()
       .then(setData)
@@ -84,38 +87,71 @@ export default function StatisticsPage() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <BreakdownPanel title="هزینه بر اساس دسته‌بندی" rows={data.expenseCategories} tone="negative" />
-            <BreakdownPanel title="درآمد بر اساس دسته‌بندی" rows={data.incomeCategories} tone="positive" />
+            <BreakdownPanel title="هزینه بر اساس دسته‌بندی" rows={data.expenseCategories} />
+            <BreakdownPanel title="درآمد بر اساس دسته‌بندی" rows={data.incomeCategories} />
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="size-4 text-primary" aria-hidden />
-                روند هفت ماه اخیر
-              </CardTitle>
-              <CardDescription>درآمد، هزینه و خالص به ازای هر ماه</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col gap-2">
-                {data.trend.map((row) => (
-                  <div
-                    key={row.month}
-                    className="grid grid-cols-[5rem_1fr_1fr_1fr] items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"
-                  >
-                    <b>{row.label}</b>
-                    <span className="text-accent-dark tabular-nums">
-                      د: {formatTomanUnit(row.incomeToman)}
-                    </span>
-                    <span className="text-danger tabular-nums">
-                      ه: {formatTomanUnit(row.expenseToman)}
-                    </span>
-                    <b className="tabular-nums">خ: {formatTomanUnit(row.netCashFlowToman)}</b>
-                  </div>
-                ))}
+          <section aria-labelledby="trend-heading" className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 id="trend-heading" className="flex items-center gap-2 text-lg font-semibold">
+                  <BarChart3 className="size-4 text-primary" aria-hidden />
+                  روند هفت ماه اخیر
+                </h2>
+                <p className="text-sm text-muted">درآمد و هزینه به ازای هر ماه</p>
               </div>
-            </CardContent>
-          </Card>
+              <div role="group" aria-label="مدل نمودار" className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={chartType === "line" ? "default" : "outline"}
+                  aria-pressed={chartType === "line"}
+                  onClick={() => setChartType("line")}
+                >
+                  خطی
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={chartType === "bar" ? "default" : "outline"}
+                  aria-pressed={chartType === "bar"}
+                  onClick={() => setChartType("bar")}
+                >
+                  ستونی
+                </Button>
+              </div>
+            </div>
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>درآمد ماهانه</CardTitle>
+                  <CardDescription>روند درآمد هفت ماه اخیر</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Chart
+                    data={data.trend}
+                    type={chartType}
+                    series={[{ key: "incomeToman", label: "درآمد", color: "income" }]}
+                    label="نمودار درآمد ماهانه هفت ماه اخیر"
+                  />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>هزینه ماهانه</CardTitle>
+                  <CardDescription>روند هزینه هفت ماه اخیر</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Chart
+                    data={data.trend}
+                    type={chartType}
+                    series={[{ key: "expenseToman", label: "هزینه", color: "expense" }]}
+                    label="نمودار هزینه ماهانه هفت ماه اخیر"
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          </section>
 
           <div className="grid gap-6 lg:grid-cols-3">
             <Card>
@@ -228,11 +264,9 @@ function Metric({
 function BreakdownPanel({
   title,
   rows,
-  tone,
 }: {
   title: string;
-  rows: DashboardStatisticsDto["expenseCategories"];
-  tone: "positive" | "negative";
+  rows: DashboardCategoryDto[];
 }) {
   return (
     <Card>
@@ -240,28 +274,32 @@ function BreakdownPanel({
         <CardTitle className="text-base">{title}</CardTitle>
       </CardHeader>
       <CardContent>
-        {rows.length === 0 ? (
-          <EmptyState icon={Landmark} title="داده‌ای ثبت نشده است" description="هنوز ردیفی برای این ماه ثبت نشده." />
-        ) : (
-          <div className="flex flex-col gap-3">
-            {rows.map((row) => (
-              <div key={row.categoryId}>
-                <div className="flex justify-between text-sm">
-                  <span>{row.name}</span>
-                  <span className="tabular-nums">
-                    {formatTomanUnit(row.amountToman)} · {decimal.format(row.percentage)}٪
-                  </span>
-                </div>
-                <div className="mt-1 h-2 rounded-full bg-secondary">
-                  <div
-                    className={cn("h-full rounded-full", tone === "positive" ? "bg-accent" : "bg-danger/70")}
-                    style={{ width: `${Math.min(row.percentage, 100)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <DataTable
+          data={rows}
+          searchKeys={["name"]}
+          pageSize={5}
+          columns={[
+            { key: "name", header: "دسته‌بندی", sortable: true },
+            {
+              key: "amountToman",
+              header: "مبلغ",
+              sortable: true,
+              numeric: true,
+              cell: (value) => formatTomanUnit(Number(value)),
+            },
+            {
+              key: "percentage",
+              header: "سهم",
+              sortable: true,
+              numeric: true,
+              cell: (value) => `${decimal.format(Number(value))}٪`,
+            },
+          ]}
+          rowKey={(row, index) => `${row.categoryId}-${row.name}-${index}`}
+          label={title}
+          emptyTitle="داده‌ای ثبت نشده است"
+          emptyDescription="هنوز ردیفی برای این ماه ثبت نشده."
+        />
       </CardContent>
     </Card>
   );

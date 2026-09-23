@@ -12,6 +12,7 @@ import { formatJalaliDate } from "@/lib/formatting/jalali";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Progress } from "@/components/ui/progress";
 
 export const dynamic = "force-dynamic";
 
@@ -149,6 +150,41 @@ export default async function AssetsPage() {
           </Link>
         </div>
       </div>
+
+      {data.funds.some((fund) => fund.goalToman !== null && fund.goalToman > 0) ? (
+        <section className="flex flex-col gap-3" aria-labelledby="fund-goals-heading">
+          <div>
+            <h2 id="fund-goals-heading" className="text-lg font-semibold">پیشرفت هدف صندوق‌ها</h2>
+            <p className="text-sm text-muted">موجودی فعلی هر صندوق نسبت به هدف پس‌انداز</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {data.funds
+              .filter((fund) => fund.goalToman !== null && fund.goalToman > 0)
+              .map((fund) => {
+                const goal = fund.goalToman ?? 0;
+                const remaining = Math.max(goal - fund.balanceToman, 0);
+                return (
+                  <Card key={fund.id} className="flex flex-col gap-4 p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="font-semibold">{fund.name}</h3>
+                      <span className="text-xs text-muted">هدف: {formatTomanUnit(goal)}</span>
+                    </div>
+                    <Progress
+                      value={fund.balanceToman}
+                      max={goal}
+                      label={`موجودی ${formatTomanUnit(fund.balanceToman)} از ${formatTomanUnit(goal)}`}
+                    />
+                    <p className="text-sm text-muted">
+                      {remaining > 0
+                        ? `باقی‌مانده تا هدف: ${formatTomanUnit(remaining)}`
+                        : "هدف این صندوق تکمیل شده است."}
+                    </p>
+                  </Card>
+                );
+              })}
+          </div>
+        </section>
+      ) : null}
 
       <section className="grid gap-4 md:grid-cols-3">
         <AddAccountForm />

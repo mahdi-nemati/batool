@@ -311,13 +311,14 @@ export function CounterpartyDetailClient({ id }: { id: string }) {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge
-                        variant={e.kind === "SETTLEMENT" ? "secondary" : "outline"}
-                        className={cn(
-                          "tabular-nums",
-                          e.kind !== "SETTLEMENT" &&
-                            (e.direction === "OWES_ME" ? "bg-accent/10 text-accent-dark" : "bg-danger/10 text-danger"),
-                          e.kind === "SETTLEMENT" && "bg-secondary text-muted",
-                        )}
+                        variant={
+                          e.kind === "SETTLEMENT"
+                            ? "secondary"
+                            : e.direction === "OWES_ME"
+                              ? "success"
+                              : "destructive"
+                        }
+                        className="tabular-nums"
                       >
                         {eventLabel(e)}
                       </Badge>

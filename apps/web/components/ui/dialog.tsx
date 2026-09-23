@@ -31,19 +31,44 @@ export function Dialog({
   className,
 }: DialogProps) {
   const panel = React.useRef<HTMLDivElement>(null);
+  const onOpenChangeRef = React.useRef(onOpenChange);
   const titleId = React.useId();
   const descId = React.useId();
+  onOpenChangeRef.current = onOpenChange;
 
   React.useEffect(() => {
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    panel.current
-      ?.querySelector<HTMLElement>("[data-autofocus], button, input, textarea, select, a[href]")
-      ?.focus();
+    const focusable = () =>
+      Array.from(
+        panel.current?.querySelectorAll<HTMLElement>(
+          '[data-autofocus], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+    (focusable().find((element) => element.hasAttribute("data-autofocus")) ?? focusable()[0] ?? panel.current)?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onOpenChange(false);
+      if (event.key === "Escape") {
+        if (role === "dialog") onOpenChangeRef.current(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const elements = focusable();
+      if (elements.length === 0) {
+        event.preventDefault();
+        panel.current?.focus();
+        return;
+      }
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
     };
     document.addEventListener("keydown", onKey);
     return () => {
@@ -51,30 +76,32 @@ export function Dialog({
       document.body.style.overflow = prevOverflow;
       prev?.focus();
     };
-  }, [open, onOpenChange]);
+  }, [open, role]);
 
   if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center"
-      onClick={() => role === "dialog" && onOpenChange(false)}
+      dir="rtl"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-overlay p-4 transition-opacity duration-200 motion-reduce:transition-none sm:items-center"
+      onClick={() => role === "dialog" && onOpenChangeRef.current(false)}
     >
       <div
         ref={panel}
         role={role}
         aria-modal="true"
+        tabIndex={-1}
         aria-labelledby={title ? titleId : undefined}
         aria-describedby={description ? descId : undefined}
         onClick={(event) => event.stopPropagation()}
         className={cn(
-          "w-full max-w-md rounded-xl border border-border bg-popover p-5 text-popover-foreground shadow-elevated",
-          "max-h-[calc(100dvh-2rem)] overflow-y-auto",
+          "relative w-full max-w-md rounded-xl border border-border bg-popover p-5 text-popover-foreground shadow-elevated",
+          "max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-b-none transition-[transform,opacity] duration-200 motion-reduce:transition-none sm:rounded-b-xl",
           className,
         )}
       >
         {(title || role === "dialog") && (
-          <div className="flex items-start justify-between gap-4">
+          <div className="relative pe-10">
             <div>
               {title && (
                 <h2 id={titleId} className="text-base font-semibold leading-6">
@@ -82,22 +109,22 @@ export function Dialog({
                 </h2>
               )}
               {description && (
-                <p id={descId} className="mt-1 text-sm text-muted-foreground">
+                <p id={descId} className="mt-1 text-body text-muted-foreground">
                   {description}
                 </p>
               )}
             </div>
-            {role === "dialog" && (
-              <button
-                type="button"
-                aria-label="بستن"
-                onClick={() => onOpenChange(false)}
-                className="-me-1 -mt-1 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent-soft hover:text-foreground"
-              >
-                <X className="size-4" aria-hidden />
-              </button>
-            )}
           </div>
+        )}
+        {role === "dialog" && (
+          <button
+            type="button"
+            aria-label="بستن"
+            onClick={() => onOpenChangeRef.current(false)}
+            className="absolute end-4 top-4 flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent-soft hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+          >
+            <X className="size-4" aria-hidden />
+          </button>
         )}
         {children && <div className="mt-4">{children}</div>}
         {footer && <div className="mt-5 flex flex-row-reverse justify-start gap-2 sm:flex-row">{footer}</div>}

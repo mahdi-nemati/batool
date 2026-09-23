@@ -14,12 +14,12 @@ export function ErrorState({ icon: Icon = TriangleAlert, title, description, act
   return (
     <div
       className={cn(
-        "flex flex-col items-center gap-2 rounded-xl border border-dashed border-destructive/40 p-8 text-center",
+         "flex flex-col items-center gap-2 rounded-xl border border-dashed border-error/40 p-8 text-center",
         className,
       )}
     >
-      <span className="flex size-10 items-center justify-center rounded-full bg-destructive/10">
-        <Icon className="size-5 text-destructive" aria-hidden />
+       <span className="flex size-10 items-center justify-center rounded-full bg-error/10">
+         <Icon className="size-5 text-error" aria-hidden />
       </span>
       <p className="mt-1 text-sm font-medium">{title}</p>
       {description && (

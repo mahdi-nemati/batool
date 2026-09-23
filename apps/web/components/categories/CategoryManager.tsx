@@ -150,10 +150,8 @@ export function CategoryManager() {
               {rows.map((c) => (
                 <li key={c.id} className="flex flex-wrap items-center gap-2 py-3 text-sm">
                   <Badge
-                    className={cn(
-                      "shrink-0",
-                      c.type === "INCOME" ? "bg-accent/10 text-accent-dark" : "bg-danger/10 text-danger",
-                    )}
+                    variant={c.type === "INCOME" ? "success" : "destructive"}
+                    className="shrink-0"
                   >
                     {c.type === "INCOME" ? "درآمد" : "هزینه"}
                   </Badge>

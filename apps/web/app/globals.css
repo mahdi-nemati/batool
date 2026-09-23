@@ -1,140 +1,132 @@
 @import "tailwindcss";
 
 /* ============================================================
-   Batool design system — single source of truth.
-   Default: warm-neutral light surfaces + turquoise identity.
-   Dark "Turquoise" skin: [data-theme="turquoise"] — color-scheme
-   dark, cool blue-tinted surfaces, light turquoise primary.
+   Batool design system — Lapis, dark indigo, technical and precise.
+   The active skin is [data-theme="lapis"].
    ============================================================ */
 @theme {
   --font-sans: "Vazirmatn", Tahoma, ui-sans-serif, system-ui, sans-serif;
 
-  /* --- Batool warm neutrals (unchanged) --- */
-  --color-paper: #f7f5ef;
-  --color-panel: #fffdf8;
-  --color-ink: #24312f;
-  --color-muted: #6a7773;
-  --color-line: #e4e0d5;
-  --color-danger: #a33a3a;
-
-  /* --- Turquoise scale — the brand core --- */
-  --color-turquoise-50: #e7f6f4;
-  --color-turquoise-100: #cdeeeb;
-  --color-turquoise-200: #a5e0db;
-  --color-turquoise-300: #6fc7c1;
-  --color-turquoise-400: #3aaba3;
-  --color-turquoise-500: #159a91;
-  --color-turquoise-600: #0f857d;
-  --color-turquoise-700: #0f716b;
-  --color-turquoise-800: #135a56;
-  --color-turquoise-900: #0f4a47;
-
-  /* --- Semantic money tokens: income / expense / saving ---
-     Meaning-first. Components read these (or the aliases below),
-     never raw scale stops. Dark theme overrides them in
-     [data-theme="turquoise"]; see the remap block there. --- */
-  --color-income: var(--color-turquoise-700);
-  --color-saving: var(--color-turquoise-600);
-  --color-expense: var(--color-danger);
-
-  /* --- Batool language aliases (reference semantics, no duplicates) --- */
-  --color-accent-dark: var(--color-income);
-  --color-accent-soft: var(--color-turquoise-100);
-
-  /* --- Status colors for legal feedback (e.g. PasswordInput strength meter) --- */
-  --color-success: #2f7d5c;
-  --color-warning: #b06a1f;
-
-  /* --- Subtle light-theme elevation --- */
-  --shadow-soft: 0 1px 2px rgb(36 49 47 / 0.04), 0 2px 6px rgb(36 49 47 / 0.06);
-  --shadow-elevated: 0 4px 12px rgb(36 49 47 / 0.08), 0 8px 24px rgb(36 49 47 / 0.06);
-
-  /* --- Radius scale — `--radius` stays the single source of truth --- */
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-}
-
-/* --- vibefarsi:theme-paper (light) mapped onto Batool turquoise tokens --- */
-:root {
-  color-scheme: light;
-
-  --background: var(--color-paper);
-  --foreground: var(--color-ink);
-  --card: var(--color-panel);
-  --card-foreground: var(--color-ink);
-  --popover: var(--color-panel);
-  --popover-foreground: var(--color-ink);
-  --primary: var(--color-turquoise-600);
-  --primary-foreground: #ffffff;
-  --secondary: var(--color-line);
-  --secondary-foreground: var(--color-ink);
-  --muted: var(--color-panel);
-  --muted-foreground: var(--color-muted);
-  --accent: var(--color-turquoise-600);
-  --accent-foreground: #ffffff;
-  --destructive: var(--color-danger);
-  --destructive-foreground: #ffffff;
-  --border: var(--color-line);
-  --input: var(--color-line);
-  --ring: var(--color-turquoise-600);
-  --brand: var(--color-turquoise-500);
-  --brand-foreground: #ffffff;
-  --radius: 0.75rem;
-}
-
-/* فیروزه. روی <html data-theme="turquoise"> یا هر عنصر دیگری اعمال کنید. */
-[data-theme="turquoise"] {
-  color-scheme: dark;
-  --background: oklch(0.15 0.03 215);
-  --foreground: oklch(0.97 0.01 200);
-  --card: oklch(0.18 0.03 215);
-  --card-foreground: oklch(0.97 0.01 200);
-  --popover: oklch(0.2 0.03 215);
-  --popover-foreground: oklch(0.97 0.01 200);
-  --primary: oklch(0.83 0.13 190);
-  --primary-foreground: oklch(0.16 0.04 200);
-  --secondary: oklch(0.25 0.04 215);
-  --secondary-foreground: oklch(0.97 0.01 200);
-  --muted: oklch(0.22 0.035 215);
-  --muted-foreground: oklch(0.72 0.04 205);
-  --accent: oklch(0.25 0.04 215);
-  --accent-foreground: oklch(0.97 0.01 200);
-  --border: oklch(0.85 0.08 200 / 14%);
-  --input: oklch(0.85 0.08 200 / 18%);
-  --ring: oklch(0.83 0.13 190);
-  --brand: oklch(0.88 0.1 185);
-  --brand-foreground: oklch(0.16 0.04 200);
-  --radius: 0.75rem;
-}
-
-/* Semantic money tokens follow the theme so income/expense/saving (and the
-   aliases accent-dark / accent-soft / danger) adapt to dark, never hardcoded. */
-[data-theme="turquoise"] {
-  --color-income: oklch(0.8 0.11 190);
-  --color-saving: oklch(0.74 0.11 185);
-  --color-expense: oklch(0.72 0.18 22);
-  --color-danger: var(--color-expense);
-  --color-accent-dark: var(--color-income);
-  --color-accent-soft: oklch(0.22 0.02 205);
-
-  /* Legal feedback colors get a dark-friendly lightness. */
-  --color-success: oklch(0.72 0.14 155);
-  --color-warning: oklch(0.74 0.13 70);
-
-  --destructive: oklch(0.68 0.18 22);
-}
-
-/* Legacy aliases follow the turquoise tokens so components that still spell
-   the warm-neutral names (bg-paper / bg-panel / text-ink / border-line /
-   text-muted) read their color from these tokens, never from hardcoded hex. */
-[data-theme="turquoise"] {
+  /* --- Lapis semantic aliases --- */
   --color-paper: var(--background);
   --color-panel: var(--card);
   --color-ink: var(--foreground);
   --color-muted: var(--muted-foreground);
   --color-line: var(--border);
+  --color-danger: var(--color-expense);
+
+  /* --- Semantic money tokens: income / expense / saving ---
+     Meaning-first. Components read these, never raw color values. --- */
+  --color-income: var(--primary);
+  --color-saving: var(--brand);
+  --color-expense: oklch(0.72 0.16 25);
+  --color-error: var(--color-expense);
+
+  /* --- Compatibility aliases for existing feature components --- */
+  --color-accent-dark: var(--color-income);
+  --color-accent-soft: var(--accent);
+
+  /* --- Status colors --- */
+  --color-success: oklch(0.74 0.14 155);
+  --color-warning: oklch(0.78 0.13 75);
+
+  /* --- Typography roles --- */
+  --text-caption: 0.6875rem;
+  --text-label: 0.75rem;
+  --text-body: 0.875rem;
+  --text-title: 1rem;
+  --text-display: 1.875rem;
+
+  /* --- Surface roles --- */
+  --surface-canvas: var(--background);
+  --surface-raised: var(--card);
+  --surface-sunken: var(--secondary);
+  --overlay: rgb(0 0 0 / 0.72);
+
+  /* --- Technical elevation --- */
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.16), 0 2px 8px rgb(0 0 0 / 0.12);
+  --shadow-elevated: 0 8px 24px rgb(0 0 0 / 0.24), 0 2px 8px rgb(0 0 0 / 0.16);
+
+  /* --- Radius scale — `--radius` stays the single source of truth --- */
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: calc(var(--radius) - 1px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 2px);
+}
+
+/* Fallback values match the active Lapis skin. */
+:root {
+  color-scheme: dark;
+  --background: oklch(0.13 0.03 275);
+  --foreground: oklch(0.97 0.01 275);
+  --card: oklch(0.165 0.035 275);
+  --card-foreground: oklch(0.97 0.01 275);
+  --popover: oklch(0.19 0.035 275);
+  --popover-foreground: oklch(0.97 0.01 275);
+  --primary: oklch(0.7 0.16 275);
+  --primary-foreground: oklch(0.98 0.01 275);
+  --secondary: oklch(0.23 0.04 275);
+  --secondary-foreground: oklch(0.97 0.01 275);
+  --muted: oklch(0.2 0.035 275);
+  --muted-foreground: oklch(0.72 0.04 275);
+  --accent: oklch(0.23 0.04 275);
+  --accent-foreground: oklch(0.97 0.01 275);
+  --border: oklch(0.7 0.1 275 / 18%);
+  --input: oklch(0.7 0.1 275 / 22%);
+  --ring: oklch(0.7 0.16 275);
+  --brand: oklch(0.8 0.12 255);
+  --brand-foreground: oklch(0.16 0.04 265);
+  --destructive: oklch(0.68 0.18 25);
+  --destructive-foreground: oklch(0.98 0.01 275);
+  --radius: 0.375rem;
+}
+
+/* لاجورد. روی <html data-theme="lapis"> یا هر عنصر دیگری اعمال کنید. */
+[data-theme="lapis"] {
+  color-scheme: dark;
+  --background: oklch(0.13 0.03 275);
+  --foreground: oklch(0.97 0.01 275);
+  --card: oklch(0.165 0.035 275);
+  --card-foreground: oklch(0.97 0.01 275);
+  --popover: oklch(0.19 0.035 275);
+  --popover-foreground: oklch(0.97 0.01 275);
+  --primary: oklch(0.7 0.16 275);
+  --primary-foreground: oklch(0.98 0.01 275);
+  --secondary: oklch(0.23 0.04 275);
+  --secondary-foreground: oklch(0.97 0.01 275);
+  --muted: oklch(0.2 0.035 275);
+  --muted-foreground: oklch(0.72 0.04 275);
+  --accent: oklch(0.23 0.04 275);
+  --accent-foreground: oklch(0.97 0.01 275);
+  --border: oklch(0.7 0.1 275 / 18%);
+  --input: oklch(0.7 0.1 275 / 22%);
+  --ring: oklch(0.7 0.16 275);
+  --brand: oklch(0.8 0.12 255);
+  --brand-foreground: oklch(0.16 0.04 265);
+  --radius: 0.375rem;
+}
+
+/* Lapis semantic aliases keep existing feature components on the new skin. */
+[data-theme="lapis"] {
+  --color-income: oklch(0.78 0.12 255);
+  --color-saving: oklch(0.76 0.12 220);
+  --color-expense: oklch(0.72 0.16 25);
+  --color-danger: var(--color-expense);
+  --color-error: var(--color-expense);
+  --color-accent-dark: var(--color-income);
+  --color-accent-soft: var(--accent);
+  --color-paper: var(--background);
+  --color-panel: var(--card);
+  --color-ink: var(--foreground);
+  --color-muted: var(--muted-foreground);
+  --color-line: var(--border);
+  --surface-canvas: var(--background);
+  --surface-raised: var(--card);
+  --surface-sunken: var(--secondary);
+  --overlay: rgb(0 0 0 / 0.72);
+  --destructive: oklch(0.68 0.18 25);
+  --color-success: oklch(0.74 0.14 155);
+  --color-warning: oklch(0.78 0.13 75);
 }
 
 /* --- vibefarsi:tailwind-map --- */
@@ -159,6 +151,10 @@
   --color-ring: var(--ring);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
+  --color-surface-canvas: var(--surface-canvas);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-overlay: var(--overlay);
 }
 
 @layer base {

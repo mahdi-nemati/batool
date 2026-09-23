@@ -1,16 +1,26 @@
 import * as React from "react";
 import { cn } from "@/lib/cn";
 
-type Variant = "default" | "secondary" | "outline" | "destructive";
+type Variant =
+  | "default"
+  | "secondary"
+  | "outline"
+  | "success"
+  | "warning"
+  | "brand"
+  | "destructive";
 
 const variants: Record<Variant, string> = {
-  default: "bg-primary text-primary-foreground",
-  secondary: "bg-secondary text-secondary-foreground",
-  outline: "border border-border text-foreground",
-  destructive: "bg-destructive text-destructive-foreground",
+  default: "text-brand",
+  secondary: "text-muted-foreground",
+  outline: "text-foreground",
+  success: "text-success",
+  warning: "text-warning",
+  brand: "text-brand",
+  destructive: "text-destructive",
 };
 
-/** نشان. A compact semantic label; keep one, not a pile of pills. */
+/** نشان. A compact text-only semantic label. */
 export function Badge({
   className,
   variant = "default",
@@ -19,7 +29,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-xs font-medium whitespace-nowrap",
+        "inline-block text-xs font-medium whitespace-nowrap",
         variants[variant],
         className,
       )}

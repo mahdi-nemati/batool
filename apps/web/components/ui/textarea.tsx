@@ -58,17 +58,17 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(fun
           onChange?.(event);
         }}
         className={cn(
-          "flex min-h-20 w-full rounded-lg border border-input bg-background/60 px-3 py-2 text-sm leading-7 text-foreground",
+           "flex min-h-20 w-full rounded-lg border border-input bg-background/60 px-3 py-2 text-body leading-7 text-foreground",
           "placeholder:text-muted-foreground/70 transition-colors",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:border-transparent",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          invalid && "border-destructive/60",
+           invalid && "border-error/60",
           autoResize ? "resize-none overflow-hidden" : "resize-y",
           className,
         )}
         {...props}
       />
-      {error && <p className="text-xs text-destructive">{error}</p>}
+       {error && <p className="text-label text-error">{error}</p>}
       {showCount && maxLength && (
         <p className="text-end text-[11px] text-muted-foreground" aria-live="polite">
           {fa(len)} / {fa(maxLength)}

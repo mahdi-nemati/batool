@@ -91,6 +91,6 @@ export default async function HomePage() {
 
 function Pill({ ok }: { ok: boolean }) {
   return (
-    <Badge variant={ok ? "default" : "destructive"}>{ok ? "سالم" : "در دسترس نیست"}</Badge>
+    <Badge variant={ok ? "success" : "destructive"}>{ok ? "سالم" : "در دسترس نیست"}</Badge>
   );
 }

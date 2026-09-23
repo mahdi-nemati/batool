@@ -11,6 +11,13 @@ const jalaliMonthName = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
   year: "numeric",
   month: "long",
 });
+const jalaliDateLong = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+  timeZone: "Asia/Tehran",
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
 
 function normalizeDigits(value: string): string {
   return [...value]
@@ -68,6 +75,15 @@ export function jalaliMonthDays(year: number, month: number): number {
 export function formatJalaliDate(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "" : jalaliDate.format(d);
+}
+
+export function formatJalaliDateLong(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const parts = Object.fromEntries(
+    jalaliDateLong.formatToParts(d).map((part) => [part.type, part.value]),
+  );
+  return `${parts.weekday}، ${parts.day} ${parts.month} ${parts.year}`;
 }
 
 export function formatJalaliDateTime(iso: string): string {

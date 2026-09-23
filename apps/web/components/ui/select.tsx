@@ -62,7 +62,7 @@ export function Select({ className, options = [], groups, placeholder, error, ..
           className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
         />
       </div>
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-label text-error">{error}</p>}
     </div>
   );
 }

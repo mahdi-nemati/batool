@@ -255,7 +255,7 @@ function DebtBadge({ cp }: { cp: CounterpartyDto }) {
   }
   const owesMe = cp.direction === "OWES_ME";
   return (
-    <Badge className={owesMe ? "bg-accent/10 text-accent-dark" : "bg-danger/10 text-danger"}>
+    <Badge variant={owesMe ? "success" : "destructive"}>
       {owesMe ? "به من بدهکار" : "من بدهکار"} · {formatTomanUnit(cp.outstandingToman)}
     </Badge>
   );
