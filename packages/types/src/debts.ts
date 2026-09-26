@@ -1,3 +1,4 @@
+import type { PaginatedResponse } from "./common";
 import type { AssetRefDto } from "./finance";
 
 export const CounterpartyKind = {
@@ -83,5 +84,6 @@ export interface DebtSummaryDto {
 
 export interface CounterpartyHistoryDto {
   counterparty: CounterpartyDto;
-  events: DebtEventDto[];
+  /** Newest-first, paginated so a long history is never fetched in full. */
+  events: PaginatedResponse<DebtEventDto>;
 }

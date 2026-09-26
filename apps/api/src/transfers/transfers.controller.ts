@@ -1,6 +1,13 @@
 import { Body, Controller, Get, Post, Query } from "@nestjs/common";
-import { AssetKind, type ApiResponse, type AuthUser, type TransferDto } from "@batool/types";
+import {
+  AssetKind,
+  type ApiResponse,
+  type AuthUser,
+  type PaginatedResponse,
+  type TransferDto,
+} from "@batool/types";
 import { CurrentUser } from "../common/auth/decorators";
+import { parsePage } from "../common/pagination/pagination";
 import { TransfersService } from "./transfers.service";
 import { CreateTransferDto } from "./dto/transfer.dto";
 
@@ -18,8 +25,10 @@ export class TransfersController {
   async list(
     @CurrentUser() user: AuthUser,
     @Query("kind") kind?: string,
-  ): Promise<ApiResponse<TransferDto[]>> {
-    return { data: await this.service.list(user.id, parseKind(kind)) };
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ): Promise<ApiResponse<PaginatedResponse<TransferDto>>> {
+    return { data: await this.service.list(user.id, parseKind(kind), parsePage(page, pageSize)) };
   }
 
   @Post()

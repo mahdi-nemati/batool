@@ -4,11 +4,13 @@ import {
   AssetKind,
   TransactionType,
   type FinancialTransactionDto,
+  type PaginatedResponse,
   type TransactionShareDto,
 } from "@batool/types";
 import { PrismaService } from "../database/prisma.service";
 import { ApiError } from "../common/errors/api-error";
 import { parseToman } from "../common/validation/money";
+import { paginate, type PageRequest } from "../common/pagination/pagination";
 import { AssetRegistryService, type ResolvedAsset } from "../assets/asset-registry.service";
 import { formatTomanFa } from "../common/formatting/fa";
 import { DebtsService } from "../debts/debts.service";
@@ -61,23 +63,20 @@ export class TransactionsService {
     // Owner share = total - participants (participants are the OTHER people's shares).
     const participants = isExpense ? (dto.shares ?? []) : [];
     let ownerShare = amount;
-    const participantData: { label: string; amount: bigint; counterpartyId?: string }[] = [];
+    const participantData: { label: string; amount: bigint; counterpartyId: string }[] = [];
     if (isExpense && participants.length > 0) {
       let sum = 0n;
       for (const p of participants) {
         const pAmount = parseToman(p.amountToman, "shares");
-        const label = p.label.trim();
-        if (label.length === 0) {
-          throw ApiError.validation("shares", "نام شرکت‌کننده نمی‌تواند خالی باشد");
-        }
-        // Fail fast on an unresolvable/inactive counterparty (404 / archived).
-        if (p.counterpartyId !== undefined) {
-          await this.debts.assertActiveOwned(this.prisma, userId, p.counterpartyId);
-        }
+        // A shared-expense participant is always an existing Counterparty of
+        // this user: the nickname is the single source of truth for the
+        // participant label, and the same participant becomes a receivable Debt
+        // Event. A free-text name is not accepted at all.
+        const cp = await this.debts.assertActiveOwned(this.prisma, userId, p.counterpartyId);
         participantData.push({
-          label,
+          label: cp.name,
           amount: pAmount,
-          ...(p.counterpartyId !== undefined ? { counterpartyId: p.counterpartyId } : {}),
+          counterpartyId: p.counterpartyId,
         });
         sum += pAmount;
       }
@@ -92,9 +91,10 @@ export class TransactionsService {
 
     return this.prisma.$transaction(async (tx) => {
       const asset = await this.registry.resolve(tx, userId, dto.assetKind, dto.assetId);
-      // resolve() guarantees ownership; only Toman assets reach here.
-      if (asset.currency !== "TOMAN") {
-        throw ApiError.validation("assetId", "منبع باید حساب بانکی یا صندوق باشد");
+      // Defensive re-check: income/expense cash is bank-only (also checked before
+      // the transaction opens), so no Fund/Gold/USD source can reach the ledger.
+      if (asset.kind !== AssetKind.BANK) {
+        throw ApiError.validation("assetKind", "درآمد و هزینه مستقیم فقط از حساب بانکی مجاز است");
       }
 
       if (isExpense) {
@@ -133,17 +133,16 @@ export class TransactionsService {
             },
           });
           participantRows.push({ id: share.id, label: p.label, amount: p.amount });
-          // A resolved participant also becomes a receivable Debt Event, linked to
-          // this share. No extra cash movement / expense is created here.
-          if (p.counterpartyId !== undefined) {
-            await this.debts.createReceivableForShare(tx, {
-              userId,
-              counterpartyId: p.counterpartyId,
-              shareId: share.id,
-              amount: p.amount,
-              occurredAt,
-            });
-          }
+          // The participant is a Counterparty, so it also becomes a receivable
+          // Debt Event linked to this share. No extra cash movement / expense is
+          // created here: the ledger leg above already carries the full outflow.
+          await this.debts.createReceivableForShare(tx, {
+            userId,
+            counterpartyId: p.counterpartyId,
+            shareId: share.id,
+            amount: p.amount,
+            occurredAt,
+          });
         }
       }
 
@@ -173,14 +172,24 @@ export class TransactionsService {
     });
   }
 
-  async list(userId: string, filters: ListFilters): Promise<FinancialTransactionDto[]> {
-    const rows = await this.prisma.financialTransaction.findMany({
-      where: this.buildWhere(userId, filters),
-      orderBy: { occurredAt: "desc" },
-      include: { category: true, shares: true },
-      take: 200,
-    });
-    return Promise.all(rows.map((r) => this.toDtoFromRels(userId, r)));
+  async list(
+    userId: string,
+    filters: ListFilters,
+    page: PageRequest,
+  ): Promise<PaginatedResponse<FinancialTransactionDto>> {
+    const where = this.buildWhere(userId, filters);
+    const [rows, total] = await Promise.all([
+      this.prisma.financialTransaction.findMany({
+        where,
+        orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
+        include: { category: true, shares: true },
+        skip: page.skip,
+        take: page.take,
+      }),
+      this.prisma.financialTransaction.count({ where }),
+    ]);
+    const data = await Promise.all(rows.map((r) => this.toDtoFromRels(userId, r)));
+    return paginate(data, total, page);
   }
 
   async get(userId: string, id: string): Promise<FinancialTransactionDto> {

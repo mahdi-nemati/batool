@@ -4,10 +4,11 @@ import type {
   BankAccountDto,
   FundDto,
   GoldWalletDto,
+  PaginatedResponse,
   TransferDto,
   UsdWalletDto,
 } from "@batool/types";
-import { ApiClientError, SERVER_API_ORIGIN, request } from "./client";
+import { ApiClientError, queryString, SERVER_API_ORIGIN, request } from "./client";
 
 export interface CreateBankAccountInput {
   name: string;
@@ -17,6 +18,12 @@ export interface CreateBankAccountInput {
 export interface CreateFundInput {
   name: string;
   goalToman?: number | string;
+}
+
+/** `goalToman: null` clears the goal; omitting it leaves the goal untouched. */
+export interface UpdateFundInput {
+  name?: string;
+  goalToman?: number | string | null;
 }
 
 export interface CreateTransferInput {
@@ -34,12 +41,12 @@ export interface AssetsOverview {
   funds: FundDto[];
   gold: GoldWalletDto;
   usd: UsdWalletDto;
-  transfers: TransferDto[];
+  transfers: PaginatedResponse<TransferDto>;
 }
 
 export interface WalletOverview {
   accounts: BankAccountDto[];
-  transfers: TransferDto[];
+  transfers: PaginatedResponse<TransferDto>;
   // Native-currency balance (grams / dollars) as an exact decimal string. The
   // wallet value is NEVER a Toman figure.
   balance: string;
@@ -47,6 +54,17 @@ export interface WalletOverview {
 }
 
 const unwrap = <T>(p: Promise<ApiResponse<T>>) => p.then((r) => r.data);
+
+/**
+ * First page of the paginated list endpoints, used by server-side loaders.
+ * It must match the page size the history components request from the browser,
+ * otherwise the first render and the first client-side page change would use
+ * different page sizes and make the pager jump.
+ */
+const DEFAULT_PAGE_SIZE = 20;
+const FIRST_PAGE = queryString(
+  Object.entries({ page: 1, pageSize: DEFAULT_PAGE_SIZE }) as [string, number][],
+);
 
 function cookieOpts(cookieHeader: string | undefined) {
   const headers =
@@ -72,13 +90,31 @@ export const createBankAccount = (body: CreateBankAccountInput) =>
 export const listFunds = () => unwrap(request<ApiResponse<FundDto[]>>("/funds"));
 export const createFund = (body: CreateFundInput) =>
   unwrap(request<ApiResponse<FundDto>>("/funds", { method: "POST", body: JSON.stringify(body) }));
+export const updateFund = (id: string, body: UpdateFundInput) =>
+  unwrap(
+    request<ApiResponse<FundDto>>(`/funds/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  );
+export const deleteFund = (id: string) =>
+  unwrap(request<ApiResponse<null>>(`/funds/${id}`, { method: "DELETE" }));
 export const createTransfer = (body: CreateTransferInput) =>
   unwrap(
     request<ApiResponse<TransferDto>>("/transfers", { method: "POST", body: JSON.stringify(body) }),
   );
-export const listTransfers = (kind?: AssetKind) =>
+export interface ListTransfersInput {
+  kind?: AssetKind;
+  page?: number;
+  pageSize?: number;
+}
+export const listTransfers = ({ kind, page, pageSize }: ListTransfersInput = {}) =>
   unwrap(
-    request<ApiResponse<TransferDto[]>>(`/transfers${kind !== undefined ? `?kind=${kind}` : ""}`),
+    request<ApiResponse<PaginatedResponse<TransferDto>>>(
+      `/transfers${queryString(
+        Object.entries({ kind, page, pageSize }) as [string, string | number | undefined][],
+      )}`,
+    ),
   );
 
 /**
@@ -95,7 +131,7 @@ export async function getAssetsOverviewServer(
       unwrap(request<ApiResponse<FundDto[]>>("/funds", opts)),
       unwrap(request<ApiResponse<GoldWalletDto>>("/assets/gold", opts)),
       unwrap(request<ApiResponse<UsdWalletDto>>("/assets/usd", opts)),
-      unwrap(request<ApiResponse<TransferDto[]>>("/transfers", opts)),
+      unwrap(request<ApiResponse<PaginatedResponse<TransferDto>>>(`/transfers${FIRST_PAGE}`, opts)),
     ]);
     return { bankAccounts, funds, gold, usd, transfers };
   } catch (error) {
@@ -129,7 +165,17 @@ export async function getWalletOverviewServer(
             createdAt: u.createdAt,
           })),
       unwrap(request<ApiResponse<BankAccountDto[]>>("/bank-accounts", opts)),
-      unwrap(request<ApiResponse<TransferDto[]>>(`/transfers?kind=${kind}`, opts)),
+      unwrap(
+        request<ApiResponse<PaginatedResponse<TransferDto>>>(
+          `/transfers${queryString(
+            Object.entries({ kind, page: 1, pageSize: DEFAULT_PAGE_SIZE }) as [
+              string,
+              string | number,
+            ][],
+          )}`,
+          opts,
+        ),
+      ),
     ]);
     return { accounts, transfers, balance: wallet.balance, createdAt: wallet.createdAt };
   } catch (error) {

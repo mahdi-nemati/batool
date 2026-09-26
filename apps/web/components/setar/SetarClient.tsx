@@ -3,15 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArchiveRestore, CalendarCheck, History, Music2, Plus, Wallet } from "lucide-react";
 import type {
-  AssetKind,
   BankAccountDto,
-  FundDto,
+  PaginatedResponse,
   SetarSessionDto,
   SetarStatusDto,
   SetarTuitionPaymentDto,
 } from "@batool/types";
-import { ApiClientError } from "@/lib/api/client";
-import { listBankAccounts, listFunds } from "@/lib/api/finance";
+import { listBankAccounts } from "@/lib/api/finance";
 import {
   createSetarProfile,
   createSetarSession,
@@ -29,22 +27,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Pagination } from "@/components/ui/pagination";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { Progress } from "@/components/ui/progress";
+import { Dialog } from "@/components/ui/dialog";
 import { JalaliDateInput } from "@/components/ui/JalaliDateInput";
 import { cn } from "@/lib/cn";
 
 const moneyInputClass =
   "h-10 w-full rounded-lg border border-input bg-background/60 px-3 text-sm text-foreground placeholder:text-muted-foreground/70";
 
+/** Tuition is always paid from a Bank Account, so the value is just the id. */
+const BANK_PREFIX = "BANK|";
+
 interface AssetOpt {
   value: string;
   label: string;
 }
 
-function statusMeta(s: SetarStatusDto): { text: string; variant: "success" | "secondary" | "destructive" } {
+function statusMeta(s: SetarStatusDto): {
+  text: string;
+  variant: "success" | "secondary" | "destructive";
+} {
   if (s.profile === null) {
     return { text: "", variant: "secondary" };
   }
@@ -64,40 +70,48 @@ const decimal = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 0 });
 
 export function SetarClient() {
   const [status, setStatus] = useState<SetarStatusDto | null>(null);
-  const [sessions, setSessions] = useState<SetarSessionDto[]>([]);
-  const [payments, setPayments] = useState<SetarTuitionPaymentDto[]>([]);
+  const [sessions, setSessions] = useState<PaginatedResponse<SetarSessionDto> | null>(null);
+  const [payments, setPayments] = useState<PaginatedResponse<SetarTuitionPaymentDto> | null>(null);
+  const [sessionPage, setSessionPage] = useState(1);
+  const [paymentPage, setPaymentPage] = useState(1);
   const [accounts, setAccounts] = useState<BankAccountDto[]>([]);
-  const [funds, setFunds] = useState<FundDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    const [st, se, pa, ac, fu] = await Promise.all([
+    const [st, se, pa, ac] = await Promise.all([
       getSetarStatus(),
-      listSetarSessions(),
-      listSetarPayments(),
+      listSetarSessions(sessionPage),
+      listSetarPayments(paymentPage),
       listBankAccounts(),
-      listFunds(),
     ]);
     setStatus(st);
     setSessions(se);
     setPayments(pa);
     setAccounts(ac);
-    setFunds(fu);
-  }, []);
+  }, [sessionPage, paymentPage]);
 
   useEffect(() => {
-    reload()
-      .catch((e) => setError(e instanceof ApiClientError ? e.message : "خطا در بارگذاری"))
-      .finally(() => setLoading(false));
+    let active = true;
+    // The API client already reports failures through the notification channel.
+    void reload()
+      .catch(() => undefined)
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [reload]);
 
+  /** Same refresh, but never rejects: the toast already reported the failure. */
+  const refresh = useCallback(async () => {
+    await reload().catch(() => undefined);
+  }, [reload]);
+
+  // Bank Accounts only: funds are savings pots and never a tuition source.
   const assetOptions: AssetOpt[] = useMemo(
-    () => [
-      ...accounts.map((a) => ({ value: `BANK|${a.id}`, label: `حساب: ${a.name}` })),
-      ...funds.map((f) => ({ value: `FUND|${f.id}`, label: `صندوق: ${f.name}` })),
-    ],
-    [accounts, funds],
+    () => accounts.map((a) => ({ value: `${BANK_PREFIX}${a.id}`, label: `حساب: ${a.name}` })),
+    [accounts],
   );
 
   return (
@@ -108,23 +122,22 @@ export function SetarClient() {
         <p className="mt-1 text-sm text-muted">جلسات و پرداخت شهریه دوره آموزش موسیقی</p>
       </header>
 
-      {error !== null ? <InlineError message={error} /> : null}
-
       {loading ? (
         <div className="flex flex-col gap-4">
           <Skeleton className="h-40 w-full" />
           <Skeleton className="h-28 w-full" />
         </div>
       ) : status === null || status.profile === null ? (
-        <SetupForm onDone={reload} onError={setError} />
+        <SetupForm onDone={refresh} />
       ) : (
         <SetarView
           status={status}
           sessions={sessions}
           payments={payments}
           assetOptions={assetOptions}
-          onDone={reload}
-          onError={setError}
+          onDone={refresh}
+          onSessionPage={setSessionPage}
+          onPaymentPage={setPaymentPage}
         />
       )}
     </div>
@@ -137,18 +150,24 @@ function SetarView({
   payments,
   assetOptions,
   onDone,
-  onError,
+  onSessionPage,
+  onPaymentPage,
 }: {
   status: SetarStatusDto;
-  sessions: SetarSessionDto[];
-  payments: SetarTuitionPaymentDto[];
+  sessions: PaginatedResponse<SetarSessionDto> | null;
+  payments: PaginatedResponse<SetarTuitionPaymentDto> | null;
   assetOptions: AssetOpt[];
   onDone: () => Promise<void>;
-  onError: (e: string) => void;
+  onSessionPage: (page: number) => void;
+  onPaymentPage: (page: number) => void;
 }) {
   const badge = statusMeta(status);
   const profile = status.profile as NonNullable<SetarStatusDto["profile"]>;
   const progress = Math.min(100, (status.sessionsInCurrentCycle / 4) * 100);
+  // Tuition can only be paid from a Bank Account, and only once the cycle is due.
+  const payable = status.tuitionPayable && !profile.archived;
+  const [form, setForm] = useState<"session" | "tuition" | "payment" | null>(null);
+  const closeForm = () => setForm(null);
 
   return (
     <div className="flex flex-col gap-6">
@@ -158,11 +177,7 @@ function SetarView({
             <Wallet className="size-4 text-primary" aria-hidden />
             وضعیت شهریه
           </CardTitle>
-          {badge.text ? (
-            <Badge variant={badge.variant}>
-              {badge.text}
-            </Badge>
-          ) : null}
+          {badge.text ? <Badge variant={badge.variant}>{badge.text}</Badge> : null}
         </CardHeader>
         <CardContent>
           <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
@@ -174,7 +189,9 @@ function SetarView({
             </div>
             <div>
               <dt className="text-muted-foreground">مجموع جلسات</dt>
-              <dd className="mt-0.5 font-bold tabular-nums">{decimal.format(status.totalSessions)}</dd>
+              <dd className="mt-0.5 font-bold tabular-nums">
+                {decimal.format(status.totalSessions)}
+              </dd>
             </div>
             <div>
               <dt className="text-muted-foreground">چرخه جاری</dt>
@@ -199,72 +216,95 @@ function SetarView({
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <SessionForm onDone={onDone} onError={onError} archived={profile.archived} />
-        <TuitionForm
-          profileId={profile.id}
-          current={profile.tuitionAmountToman}
-          onDone={onDone}
-          onError={onError}
-        />
-        <PaymentForm
-          status={status}
-          assetOptions={assetOptions}
-          onDone={onDone}
-          onError={onError}
-          className="lg:col-span-2"
-        />
-      </div>
-
-      <div>
+      {/* Actions: every creation form lives in a modal, like the Assets page. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button onClick={() => setForm("session")} disabled={profile.archived}>
+          <Plus aria-hidden /> ثبت جلسه
+        </Button>
+        <Button variant="outline" onClick={() => setForm("payment")} disabled={!payable}>
+          <Wallet aria-hidden /> پرداخت شهریه ({formatTomanUnit(profile.tuitionAmountToman)})
+        </Button>
+        <Button variant="outline" onClick={() => setForm("tuition")}>
+          تغییر شهریه
+        </Button>
         <Button
           type="button"
           variant="ghost"
-          size="sm"
           onClick={() =>
-            updateSetarProfile(profile.id, { archived: !profile.archived })
-              .then(() => onDone())
-              .catch((e) => onError(e instanceof ApiClientError ? e.message : "خطا"))
+            updateSetarProfile(profile.id, { archived: !profile.archived }).then(() => onDone())
           }
         >
           <ArchiveRestore className="size-3.5" aria-hidden />
           {profile.archived ? "بازگردانی پروفایل" : "بایگانی پروفایل"}
         </Button>
       </div>
+      {!payable ? (
+        <p className="text-xs text-muted">
+          {status.totalSessions === 0
+            ? "هنوز جلسه‌ای ثبت نشده است؛ پس از ثبت جلسه‌ها چرخه شهریه آغاز می‌شود."
+            : `پس از تکمیل ${decimal.format(status.sessionsRemainingUntilTuition)} جلسه باقی‌مانده، پرداخت شهریه فعال می‌شود.`}
+        </p>
+      ) : null}
 
-      <SetarHistory sessions={sessions} payments={payments} />
+      <Dialog
+        open={form === "session"}
+        onOpenChange={(value) => {
+          if (!value) closeForm();
+        }}
+        title="ثبت جلسه"
+        description="هر جلسه سنتی چهار جلسه شهریه‌اش را پیش می‌برد."
+      >
+        <SessionForm onDone={onDone} archived={profile.archived} onSaved={closeForm} />
+      </Dialog>
+
+      <Dialog
+        open={form === "tuition"}
+        onOpenChange={(value) => {
+          if (!value) closeForm();
+        }}
+        title="تغییر شهریه"
+        description={`شهریه فعلی: ${formatTomanUnit(profile.tuitionAmountToman)}`}
+      >
+        <TuitionForm profileId={profile.id} onDone={onDone} onSaved={closeForm} />
+      </Dialog>
+
+      <Dialog
+        open={form === "payment"}
+        onOpenChange={(value) => {
+          if (!value) closeForm();
+        }}
+        title="پرداخت شهریه"
+        description="مبلغ از روی شهریه تعیین‌شده توسط سرور پرداخت می‌شود."
+      >
+        <PaymentForm
+          status={status}
+          assetOptions={assetOptions}
+          onDone={onDone}
+          onSaved={closeForm}
+        />
+      </Dialog>
+
+      <SetarHistory
+        sessions={sessions}
+        payments={payments}
+        onSessionPage={onSessionPage}
+        onPaymentPage={onPaymentPage}
+      />
     </div>
   );
 }
 
-function InlineError({ message }: { message: string }) {
-  return (
-    <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
-      {message}
-    </p>
-  );
-}
-
-function SetupForm({
-  onDone,
-  onError,
-}: {
-  onDone: () => Promise<void>;
-  onError: (e: string) => void;
-}) {
+function SetupForm({ onDone }: { onDone: () => Promise<void> }) {
   const [tuition, setTuition] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    onError("");
     setBusy(true);
     try {
       await createSetarProfile(tuition);
       setTuition("");
       await onDone();
-    } catch (err) {
-      onError(err instanceof ApiClientError ? err.message : "خطا");
     } finally {
       setBusy(false);
     }
@@ -305,12 +345,12 @@ function SetupForm({
 
 function SessionForm({
   onDone,
-  onError,
   archived,
+  onSaved,
 }: {
   onDone: () => Promise<void>;
-  onError: (e: string) => void;
   archived: boolean;
+  onSaved: () => void;
 }) {
   const [date, setDate] = useState("");
   const [description, setDescription] = useState("");
@@ -318,7 +358,6 @@ function SessionForm({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    onError("");
     setBusy(true);
     try {
       await createSetarSession({
@@ -327,102 +366,88 @@ function SessionForm({
       });
       setDate("");
       setDescription("");
+      onSaved();
       await onDone();
-    } catch (err) {
-      onError(err instanceof ApiClientError ? err.message : "خطا");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Plus className="size-4 text-primary" aria-hidden />
-          ثبت جلسه
-        </CardTitle>
-        <CardDescription>هر جلسه سنتی چهار جلسه شهریه‌اش را پیش می‌برد.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="ss-date">تاریخ جلسه (اختیاری)</Label>
-            <JalaliDateInput id="ss-date" className={moneyInputClass} value={date} onChange={setDate} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="ss-desc">توضیح (اختیاری)</Label>
-            <Input
-              id="ss-desc"
-              placeholder="مثلاً تمرین موسیقی ایرانی"
-              maxLength={200}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
-          <Button type="submit" disabled={busy || archived} className="self-start">
-            {busy ? "…" : "ثبت جلسه"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    <form onSubmit={submit} className="flex flex-col gap-3">
+      <div className="space-y-1.5">
+        <Label htmlFor="ss-date">تاریخ جلسه (اختیاری)</Label>
+        <JalaliDateInput id="ss-date" className={moneyInputClass} value={date} onChange={setDate} />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="ss-desc">توضیح (اختیاری)</Label>
+        <Input
+          id="ss-desc"
+          placeholder="مثلاً تمرین موسیقی ایرانی"
+          maxLength={200}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" onClick={onSaved}>
+          انصراف
+        </Button>
+        <Button type="submit" disabled={busy || archived}>
+          {busy ? "در حال ثبت…" : "ثبت جلسه"}
+        </Button>
+      </div>
+    </form>
   );
 }
 
 function TuitionForm({
   profileId,
-  current,
   onDone,
-  onError,
+  onSaved,
 }: {
   profileId: string;
-  current: number;
   onDone: () => Promise<void>;
-  onError: (e: string) => void;
+  onSaved: () => void;
 }) {
   const [tuition, setTuition] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    onError("");
     setBusy(true);
     try {
       await updateSetarProfile(profileId, { tuitionAmountToman: tuition });
       setTuition("");
+      onSaved();
       await onDone();
-    } catch (err) {
-      onError(err instanceof ApiClientError ? err.message : "خطا");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>تغییر شهریه</CardTitle>
-        <CardDescription>شهریه فعلی: {formatTomanUnit(current)}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="tt-amount">شهریه جدید (تومان)</Label>
-            <MoneyInput
-              id="tt-amount"
-              className={moneyInputClass}
-              placeholder="مثلاً ۳٬۵۰۰٬۰۰۰"
-              required
-              value={tuition}
-              onChange={setTuition}
-            />
-          </div>
-          <Button type="submit" disabled={busy} className="self-start">
-            {busy ? "…" : "ذخیره شهریه"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    <form onSubmit={submit} className="flex flex-col gap-3">
+      <div className="space-y-1.5">
+        <Label htmlFor="tt-amount">شهریه جدید (تومان)</Label>
+        <MoneyInput
+          id="tt-amount"
+          className={moneyInputClass}
+          placeholder="مثلاً ۳٬۵۰۰٬۰۰۰"
+          required
+          value={tuition}
+          onChange={setTuition}
+        />
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" onClick={onSaved}>
+          انصراف
+        </Button>
+        <Button type="submit" disabled={busy}>
+          {busy ? "در حال ذخیره…" : "ذخیره شهریه"}
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -430,14 +455,12 @@ function PaymentForm({
   status,
   assetOptions,
   onDone,
-  onError,
-  className,
+  onSaved,
 }: {
   status: SetarStatusDto;
   assetOptions: AssetOpt[];
   onDone: () => Promise<void>;
-  onError: (e: string) => void;
-  className?: string;
+  onSaved: () => void;
 }) {
   const [asset, setAsset] = useState("");
   const [busy, setBusy] = useState(false);
@@ -450,67 +473,63 @@ function PaymentForm({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!asset) return;
-    onError("");
     setBusy(true);
     try {
-      const idx = asset.indexOf("|");
       await paySetarTuition({
-        assetKind: asset.slice(0, idx) as AssetKind,
-        assetId: asset.slice(idx + 1),
+        assetKind: "BANK",
+        assetId: asset.startsWith(BANK_PREFIX) ? asset.slice(BANK_PREFIX.length) : asset,
       });
       setAsset("");
+      onSaved();
       await onDone();
-    } catch (err) {
-      onError(err instanceof ApiClientError ? err.message : "خطا");
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Card className={className}>
-      <CardHeader>
-        <CardTitle>پرداخت شهریه</CardTitle>
-        <CardDescription>مبلغ از روی شهریه تعیین‌شده توسط سرور پرداخت می‌شود.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={submit} className="flex flex-col gap-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="st-asset">از حساب / صندوق</Label>
-            <Select
-              id="st-asset"
-              placeholder="حساب / صندوق…"
-              disabled={!payable}
-              required
-              options={assetOptions}
-              value={asset}
-              onChange={(e) => setAsset(e.target.value)}
-            />
-          </div>
-          {!status.tuitionPayable ? (
-            <p className="text-sm text-muted">
-              {status.totalSessions === 0
-                ? "هنوز جلسه‌ای ثبت نشده است."
-                : `پس از تکمیل ${decimal.format(status.sessionsRemainingUntilTuition)} جلسه باقی‌مانده، پرداخت فعال می‌شود.`}
-            </p>
-          ) : null}
-          <Button type="submit" variant={payable ? "default" : "secondary"} disabled={busy || !payable} className="self-start">
-            {busy ? "…" : `پرداخت شهریه (${formatTomanUnit(amount)})`}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    <form onSubmit={submit} className="flex flex-col gap-3">
+      <div className="space-y-1.5">
+        <Label htmlFor="st-asset">از حساب بانکی</Label>
+        <Select
+          id="st-asset"
+          placeholder="حساب بانکی…"
+          disabled={!payable}
+          required
+          options={assetOptions}
+          value={asset}
+          onChange={(e) => setAsset(e.target.value)}
+        />
+      </div>
+      <p className="text-sm text-muted">
+        مبلغ پرداختی: <b className="tabular-nums">{formatTomanUnit(amount)}</b>
+      </p>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" onClick={onSaved}>
+          انصراف
+        </Button>
+        <Button type="submit" disabled={busy || !payable}>
+          {busy ? "در حال پرداخت…" : "پرداخت"}
+        </Button>
+      </div>
+    </form>
   );
 }
 
 function SetarHistory({
   sessions,
   payments,
+  onSessionPage,
+  onPaymentPage,
 }: {
-  sessions: SetarSessionDto[];
-  payments: SetarTuitionPaymentDto[];
+  sessions: PaginatedResponse<SetarSessionDto> | null;
+  payments: PaginatedResponse<SetarTuitionPaymentDto> | null;
+  onSessionPage: (page: number) => void;
+  onPaymentPage: (page: number) => void;
 }) {
   const [tab, setTab] = useState<"sessions" | "payments">("sessions");
+  const sessionRows = sessions?.data ?? [];
+  const paymentRows = payments?.data ?? [];
 
   return (
     <Card>
@@ -522,8 +541,14 @@ function SetarHistory({
         <div className="flex rounded-lg border border-input bg-background/60 p-0.5">
           {(
             [
-              { key: "sessions", label: `جلسات (${decimal.format(sessions.length)})` },
-              { key: "payments", label: `پرداخت شهریه (${decimal.format(payments.length)})` },
+              {
+                key: "sessions",
+                label: `جلسات (${decimal.format(sessions?.meta.total ?? 0)})`,
+              },
+              {
+                key: "payments",
+                label: `پرداخت شهریه (${decimal.format(payments?.meta.total ?? 0)})`,
+              },
             ] as const
           ).map((t) => (
             <button
@@ -533,7 +558,9 @@ function SetarHistory({
               onClick={() => setTab(t.key)}
               className={cn(
                 "h-8 flex-1 rounded-md px-3 text-sm font-semibold transition-colors",
-                tab === t.key ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                tab === t.key
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               {t.label}
@@ -543,48 +570,76 @@ function SetarHistory({
       </CardHeader>
       <CardContent>
         {tab === "sessions" ? (
-          sessions.length === 0 ? (
-            <EmptyState
-              icon={CalendarCheck}
-              title="هنوز جلسه‌ای ثبت نشده است"
-              description="با ثبت اولین جلسه، چرخه شهریه آغاز می‌شود."
-            />
-          ) : (
-            <ul className="flex flex-col divide-y divide-border">
-              {sessions.map((s) => (
-                <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
-                  <span className="flex items-center gap-2">
-                    <Badge variant="outline" className="tabular-nums">جلسه {decimal.format(s.sessionNo)}</Badge>
-                    {s.description ? <span className="text-muted">({s.description})</span> : null}
-                  </span>
-                  <span className="text-muted-foreground">{formatJalaliDate(s.occurredAt)}</span>
-                </li>
-              ))}
-            </ul>
-          )
-        ) : payments.length === 0 ? (
-          <EmptyState
-            icon={Wallet}
-            title="پرداخت شهریه‌ای ثبت نشده است"
-            description="پس از تکمیل چرخه، پرداخت ثبت و اینجا نمایش داده می‌شود."
-          />
+          <>
+            {sessionRows.length === 0 ? (
+              <EmptyState
+                icon={CalendarCheck}
+                title="هنوز جلسه‌ای ثبت نشده است"
+                description="با ثبت اولین جلسه، چرخه شهریه آغاز می‌شود."
+              />
+            ) : (
+              <ul className="flex flex-col divide-y divide-border">
+                {sessionRows.map((s) => (
+                  <li
+                    key={s.id}
+                    className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Badge variant="outline" className="tabular-nums">
+                        جلسه {decimal.format(s.sessionNo)}
+                      </Badge>
+                      {s.description ? <span className="text-muted">({s.description})</span> : null}
+                    </span>
+                    <span className="text-muted-foreground">{formatJalaliDate(s.occurredAt)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {sessions !== null && sessions.meta.total > 0 ? (
+              <Pagination
+                className="mt-3"
+                meta={sessions.meta}
+                onPageChange={onSessionPage}
+                label="صفحه‌بندی جلسات"
+              />
+            ) : null}
+          </>
         ) : (
-          <ul className="flex flex-col divide-y divide-border">
-            {payments.map((p) => (
-              <li
-                key={p.id}
-                className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"
-              >
-                <span className="flex items-center gap-2">
-                  <b className="tabular-nums">{formatTomanUnit(p.amountToman)}</b>
-                  <span className="text-muted-foreground">
-                    دوره {decimal.format(p.cycleNo)} · جلسات {decimal.format(p.sessionStartNo)} تا {decimal.format(p.sessionEndNo)}
-                  </span>
-                </span>
-                <span className="text-muted-foreground">{formatJalaliDate(p.paidAt)}</span>
-              </li>
-            ))}
-          </ul>
+          <>
+            {paymentRows.length === 0 ? (
+              <EmptyState
+                icon={Wallet}
+                title="پرداخت شهریه‌ای ثبت نشده است"
+                description="پس از تکمیل چرخه، پرداخت ثبت و اینجا نمایش داده می‌شود."
+              />
+            ) : (
+              <ul className="flex flex-col divide-y divide-border">
+                {paymentRows.map((p) => (
+                  <li
+                    key={p.id}
+                    className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm"
+                  >
+                    <span className="flex items-center gap-2">
+                      <b className="tabular-nums">{formatTomanUnit(p.amountToman)}</b>
+                      <span className="text-muted-foreground">
+                        دوره {decimal.format(p.cycleNo)} · جلسات {decimal.format(p.sessionStartNo)}{" "}
+                        تا {decimal.format(p.sessionEndNo)}
+                      </span>
+                    </span>
+                    <span className="text-muted-foreground">{formatJalaliDate(p.paidAt)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {payments !== null && payments.meta.total > 0 ? (
+              <Pagination
+                className="mt-3"
+                meta={payments.meta}
+                onPageChange={onPaymentPage}
+                label="صفحه‌بندی پرداخت‌ها"
+              />
+            ) : null}
+          </>
         )}
       </CardContent>
     </Card>

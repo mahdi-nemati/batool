@@ -3,7 +3,9 @@ import { IsIn, IsInt, IsISO8601, IsOptional, IsString, Max, MaxLength, Min } fro
 import { AssetKind, DebtDirection } from "@batool/types";
 
 const DIRECTIONS: DebtDirection[] = [DebtDirection.OWES_ME, DebtDirection.I_OWE];
-const ASSET_KINDS: AssetKind[] = [AssetKind.BANK, AssetKind.FUND];
+// Business rule: a debt payment is debited from a Bank Account only. Funds are
+// savings targets and may never act as a payment source.
+const ASSET_KINDS: AssetKind[] = [AssetKind.BANK];
 
 /** Manual debt obligation event (creates/increases what they owe me or I owe them). */
 export class CreateDebtEventDto {
@@ -30,9 +32,10 @@ export class CreateDebtEventDto {
 }
 
 /**
- * Settlement action. Direction is derived from the current outstanding balance,
- * so the caller only provides the positive amount + the Toman source/destination
- * asset. It must reduce the outstanding debt and never exceed it.
+ * Debt payment ("پرداخت بدهی"). There is deliberately no direction/intent field
+ * and no "receive" counterpart: only the debtor can pay, and the service derives
+ * the direction from the outstanding net (it must be a debt the current user
+ * owes). A creditor therefore has no payment endpoint to call at all.
  */
 export class SettleDebtDto {
   @IsString()
@@ -44,8 +47,8 @@ export class SettleDebtDto {
   @Max(Number.MAX_SAFE_INTEGER)
   amountToman!: number;
 
-  // Settlement cash moves through a Bank/Fund only (never Gold/USD).
-  @IsIn(ASSET_KINDS, { message: "تسویه فقط با حساب بانکی یا صندوق انجام می‌شود" })
+  // Settlement cash is debited from a Bank Account only (never Gold/USD/Fund).
+  @IsIn(ASSET_KINDS, { message: "تسویه فقط از حساب بانکی انجام می‌شود" })
   assetKind!: AssetKind;
 
   @IsString()

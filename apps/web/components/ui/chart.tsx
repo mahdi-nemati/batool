@@ -34,11 +34,24 @@ const chartColors: Record<ChartColor, string> = {
 
 const compactNumber = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 1 });
 
+/** Tick labels are short so the value axis never overflows its gutter. */
+function formatAxisTick(value: number): string {
+  const absolute = Math.abs(value);
+  const sign = value < 0 ? "−" : "";
+  if (absolute >= 1_000_000_000)
+    return `${sign}${compactNumber.format(absolute / 1_000_000_000)} میلیارد`;
+  if (absolute >= 1_000_000) return `${sign}${compactNumber.format(absolute / 1_000_000)} میلیون`;
+  if (absolute >= 1_000) return `${sign}${compactNumber.format(absolute / 1_000)} هزار`;
+  return compactNumber.format(value);
+}
+
 function formatCompactToman(value: number): string {
   const absolute = Math.abs(value);
   const sign = value < 0 ? "−" : "";
-  if (absolute >= 1_000_000_000) return `${sign}${compactNumber.format(absolute / 1_000_000_000)} میلیارد تومان`;
-  if (absolute >= 1_000_000) return `${sign}${compactNumber.format(absolute / 1_000_000)} میلیون تومان`;
+  if (absolute >= 1_000_000_000)
+    return `${sign}${compactNumber.format(absolute / 1_000_000_000)} میلیارد تومان`;
+  if (absolute >= 1_000_000)
+    return `${sign}${compactNumber.format(absolute / 1_000_000)} میلیون تومان`;
   if (absolute >= 1_000) return `${sign}${compactNumber.format(absolute / 1_000)} هزار تومان`;
   return formatTomanUnit(value);
 }
@@ -46,7 +59,8 @@ function formatCompactToman(value: number): string {
 function niceStep(rawStep: number): number {
   const power = 10 ** Math.floor(Math.log10(rawStep));
   const normalized = rawStep / power;
-  const factor = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 2.5 ? 2.5 : normalized <= 5 ? 5 : 10;
+  const factor =
+    normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 2.5 ? 2.5 : normalized <= 5 ? 5 : 10;
   return factor * power;
 }
 
@@ -80,7 +94,7 @@ export function Chart({
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const width = 720;
   const height = 300;
-  const pad = { top: 24, end: 88, bottom: 48, start: 16 };
+  const pad = { top: 34, end: 104, bottom: 48, start: 20 };
   const plotWidth = width - pad.start - pad.end;
   const plotHeight = height - pad.top - pad.bottom;
   const values = data.flatMap((datum) => series.map((item) => Number(datum[item.key] ?? 0)));
@@ -91,8 +105,11 @@ export function Chart({
   const domainMax = ticks[ticks.length - 1] ?? 1;
   const domainRange = domainMax - domainMin || 1;
   const slot = plotWidth / Math.max(data.length, 1);
+  const tooltipWidth = 210;
   const tooltipHeight = 34 + series.length * 18;
-  const xFor = (index: number) => width - pad.end - (index + 1) * slot;
+  // Half-slot inset: the first slot (newest month, leftmost in RTL) would
+  // otherwise be centred on the plot edge, clipping its bar and its label.
+  const xFor = (index: number) => width - pad.end - (index + 0.5) * slot;
   const yFor = (value: number) => pad.top + ((domainMax - value) / domainRange) * plotHeight;
   const baseline = yFor(0);
   const pointsFor = (key: string) =>
@@ -102,10 +119,12 @@ export function Chart({
       value: Number(datum[key] ?? 0),
     }));
   const activeDatum = activeIndex === null ? null : data[activeIndex];
+  // Anchored on the highest point of the hovered column, so the tooltip never
+  // sits on top of the series the pointer is actually following.
   const activePointY =
-    activeIndex === null || series[0] === undefined
+    activeIndex === null
       ? pad.top
-      : yFor(Number(data[activeIndex]?.[series[0].key] ?? 0));
+      : Math.min(...series.map((item) => yFor(Number(data[activeIndex]?.[item.key] ?? 0))));
 
   return (
     <div dir="rtl" className="w-full overflow-hidden" onPointerLeave={() => setActiveIndex(null)}>
@@ -143,19 +162,31 @@ export function Chart({
                 stroke="var(--border)"
                 strokeDasharray="2 5"
               />
+              {/* RTL text anchored at "end" grows towards +x, so the label sits
+                  inside the right gutter and never overflows the viewBox. */}
               <text
-                x={width - pad.end - 8}
+                x={width - pad.end + 6}
                 y={y + 4}
                 textAnchor="end"
                 fill="var(--muted-foreground)"
                 fontSize="11"
                 direction="rtl"
               >
-                {formatCompactToman(tick)}
+                {formatAxisTick(tick)}
               </text>
             </g>
           );
         })}
+        <text
+          x={width - pad.end + 6}
+          y={pad.top - 12}
+          textAnchor="end"
+          fill="var(--muted-foreground)"
+          fontSize="10"
+          direction="rtl"
+        >
+          تومان
+        </text>
 
         {data.map((datum, index) => (
           <text
@@ -251,18 +282,24 @@ export function Chart({
               opacity="0.5"
             />
             <rect
-              x={tooltipX(xFor(activeIndex), width, pad.start, pad.end)}
+              x={tooltipX(xFor(activeIndex), width, pad.start, pad.end, tooltipWidth)}
               y={tooltipY(activePointY, height, pad.top, pad.bottom, tooltipHeight)}
-              width="190"
+              width={tooltipWidth}
               height={tooltipHeight}
               rx="var(--radius-md)"
               fill="var(--popover)"
               stroke="var(--border)"
             />
+            {/* Persian text is RTL: "start" is the right edge, so the lines grow
+                leftwards and stay inside the tooltip box. */}
             <text
-              x={tooltipX(xFor(activeIndex), width, pad.start, pad.end) + 180}
+              x={
+                tooltipX(xFor(activeIndex), width, pad.start, pad.end, tooltipWidth) +
+                tooltipWidth -
+                10
+              }
               y={tooltipY(activePointY, height, pad.top, pad.bottom, tooltipHeight) + 18}
-              textAnchor="end"
+              textAnchor="start"
               fill="var(--popover-foreground)"
               fontSize="11"
               fontWeight="600"
@@ -273,9 +310,17 @@ export function Chart({
             {series.map((item, seriesIndex) => (
               <text
                 key={item.key}
-                x={tooltipX(xFor(activeIndex), width, pad.start, pad.end) + 180}
-                y={tooltipY(activePointY, height, pad.top, pad.bottom, tooltipHeight) + 36 + seriesIndex * 18}
-                textAnchor="end"
+                x={
+                  tooltipX(xFor(activeIndex), width, pad.start, pad.end, tooltipWidth) +
+                  tooltipWidth -
+                  10
+                }
+                y={
+                  tooltipY(activePointY, height, pad.top, pad.bottom, tooltipHeight) +
+                  36 +
+                  seriesIndex * 18
+                }
+                textAnchor="start"
                 fill={chartColors[item.color]}
                 fontSize="10"
                 direction="rtl"
@@ -301,12 +346,23 @@ function chartXLabel(label: string): string {
     : label;
 }
 
-function tooltipX(x: number, width: number, start: number, end: number): number {
-  const tooltipWidth = 190;
+function tooltipX(
+  x: number,
+  width: number,
+  start: number,
+  end: number,
+  tooltipWidth: number,
+): number {
   return Math.max(start, Math.min(x - tooltipWidth / 2, width - end - tooltipWidth));
 }
 
-function tooltipY(y: number, height: number, top: number, bottom: number, tooltipHeight: number): number {
+function tooltipY(
+  y: number,
+  height: number,
+  top: number,
+  bottom: number,
+  tooltipHeight: number,
+): number {
   const preferred = y < height / 2 ? y + 16 : y - tooltipHeight - 16;
   return Math.max(top, Math.min(preferred, height - bottom - tooltipHeight));
 }

@@ -1,20 +1,55 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@batool/database";
-import {
-  type DashboardBalanceDto,
-  type DashboardExpenseCategoryDto,
-  type DashboardInstallmentDto,
-  type DashboardMonth,
-  type DashboardMonthOption,
-  type DashboardStatisticsDto,
-  type DashboardSummaryDto,
-  type FinancialTransactionDto,
+import { TransactionType } from "@batool/types";
+import type {
+  DashboardBalanceDto,
+  DashboardCategoryDto,
+  DashboardInstallmentDto,
+  DashboardMonth,
+  DashboardMonthOption,
+  DashboardStatisticsDto,
+  DashboardSummaryDto,
+  FinancialTransactionDto,
 } from "@batool/types";
 import { PrismaService } from "../database/prisma.service";
 import { DebtsService } from "../debts/debts.service";
 import { ApiError } from "../common/errors/api-error";
 import { dueDateForOccurrence, occurrenceStatus } from "../installments/due-date";
 import { SESSIONS_PER_PAYMENT } from "../setar/cycle";
+
+/** Minimal projection used for every income/expense aggregation. */
+type CashRow = {
+  type: TransactionType;
+  categoryId: string;
+  amountToman: bigint;
+  shares: { isOwner: boolean; amountToman: bigint }[];
+};
+
+const cashRowSelect = {
+  type: true,
+  categoryId: true,
+  amountToman: true,
+  shares: { select: { isOwner: true, amountToman: true } },
+} satisfies Prisma.FinancialTransactionSelect;
+
+const timedCashRowSelect = {
+  ...cashRowSelect,
+  occurredAt: true,
+} satisfies Prisma.FinancialTransactionSelect;
+
+/**
+ * The amount that belongs to the OWNER for one transaction row.
+ *
+ * `amountToman` is the total cash that left the account. On a split expense part
+ * of that was paid on behalf of other people, so only the owner's own share
+ * counts as their expense (the rest is tracked as a receivable debt). Plain
+ * expenses have no share rows, so they contribute their full amount.
+ */
+function ownerAmount(row: CashRow): bigint {
+  if (row.type !== TransactionType.EXPENSE) return row.amountToman;
+  const owner = row.shares.find((share) => share.isOwner);
+  return owner !== undefined ? owner.amountToman : row.amountToman;
+}
 
 const TEHRAN = "Asia/Tehran";
 const persianParts = new Intl.DateTimeFormat("en-US-u-ca-persian", {
@@ -133,41 +168,32 @@ export class DashboardService {
   async summary(userId: string, rawMonth?: string): Promise<DashboardSummaryDto> {
     const resolved = resolveMonth(rawMonth);
     const month = monthView(resolved.year, resolved.month);
-    const [
-      banks,
-      funds,
-      movements,
-      monthlyRows,
-      recentRows,
-      debtSummary,
-      installments,
-      setar,
-    ] = await Promise.all([
-      this.prisma.bankAccount.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
-      this.prisma.fund.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
-      this.prisma.assetMovement.groupBy({
-        by: ["assetKind", "assetId"],
-        where: { userId },
-        _sum: { amountToman: true, amountGram: true, amountUsd: true },
-      }),
-      this.prisma.financialTransaction.groupBy({
-        by: ["type", "categoryId"],
-        where: { userId, occurredAt: { gte: resolved.start, lt: resolved.end } },
-        _sum: { amountToman: true },
-      }),
-      this.prisma.financialTransaction.findMany({
-        where: { userId },
-        orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
-        take: 5,
-        include: { category: true, shares: true },
-      }),
-      this.debts.summary(userId),
-      this.prisma.installment.findMany({
-        where: { userId, archived: false },
-        orderBy: { createdAt: "desc" },
-      }),
-      this.setarSummary(userId),
-    ]);
+    const [banks, funds, movements, monthlyRows, recentRows, debtSummary, installments, setar] =
+      await Promise.all([
+        this.prisma.bankAccount.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
+        this.prisma.fund.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
+        this.prisma.assetMovement.groupBy({
+          by: ["assetKind", "assetId"],
+          where: { userId },
+          _sum: { amountToman: true, amountGram: true, amountUsd: true },
+        }),
+        this.prisma.financialTransaction.findMany({
+          where: { userId, occurredAt: { gte: resolved.start, lt: resolved.end } },
+          select: cashRowSelect,
+        }),
+        this.prisma.financialTransaction.findMany({
+          where: { userId },
+          orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
+          take: 5,
+          include: { category: true, shares: true },
+        }),
+        this.debts.summary(userId),
+        this.prisma.installment.findMany({
+          where: { userId, archived: false },
+          orderBy: { createdAt: "desc" },
+        }),
+        this.setarSummary(userId),
+      ]);
 
     const balanceByAsset = new Map(
       movements.map((row) => [`${row.assetKind}:${row.assetId}`, row._sum.amountToman ?? 0n]),
@@ -199,27 +225,14 @@ export class DashboardService {
     const categoryIds = monthlyRows.map((row) => row.categoryId);
     const categories = await this.prisma.category.findMany({ where: { id: { in: categoryIds } } });
     const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
-    let incomeToman = 0;
-    let expenseToman = 0;
-    const expenseCategories: DashboardExpenseCategoryDto[] = [];
-    for (const row of monthlyRows) {
-      const amount = Number(row._sum.amountToman ?? 0n);
-      if (row.type === "INCOME") incomeToman += amount;
-      if (row.type === "EXPENSE") {
-        expenseToman += amount;
-        expenseCategories.push({
-          categoryId: row.categoryId,
-          name: categoryNames.get(row.categoryId) ?? "دسته‌بندی حذف‌شده",
-          amountToman: amount,
-          percentage: 0,
-        });
-      }
-    }
-    for (const item of expenseCategories) {
-      item.percentage =
-        expenseToman === 0 ? 0 : Math.round((item.amountToman / expenseToman) * 10000) / 100;
-    }
-    expenseCategories.sort((a, b) => b.amountToman - a.amountToman);
+    const totals = this.cashTotals(monthlyRows);
+    const expenseCategories = this.categoryBreakdown(
+      monthlyRows,
+      TransactionType.EXPENSE,
+      categoryNames,
+    );
+    const incomeToman = totals.incomeToman;
+    const expenseToman = totals.expenseToman;
 
     const assetNames = new Map([
       ...banks.map((bank) => [`BANK:${bank.id}`, bank.name] as const),
@@ -334,97 +347,49 @@ export class DashboardService {
           lt: new Date(lastMonth.view.end),
         },
       },
-      select: { type: true, categoryId: true, amountToman: true, occurredAt: true },
+      select: timedCashRowSelect,
     });
     const categoryIds = [...new Set(windowRows.map((row) => row.categoryId))];
-    const [
-      banks,
-      funds,
-      movements,
-      categories,
-      debtSummary,
-      installments,
-      paymentCounts,
-      profile,
-    ] = await Promise.all([
-      this.prisma.bankAccount.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
-      this.prisma.fund.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
-      this.prisma.assetMovement.groupBy({
-        by: ["assetKind", "assetId"],
-        where: { userId },
-        _sum: { amountToman: true, amountGram: true, amountUsd: true },
-      }),
-      this.prisma.category.findMany({ where: { id: { in: categoryIds } } }),
-      this.debts.summary(userId),
-      this.prisma.installment.findMany({ where: { userId, archived: false } }),
-      this.prisma.installmentPayment.groupBy({
-        by: ["installmentId"],
-        where: { installment: { userId } },
-        _count: { _all: true },
-      }),
-      this.prisma.setarProfile.findUnique({ where: { userId } }),
-    ]);
-    const [sessions, tuitionPayments] = profile
-      ? await Promise.all([
-          this.prisma.setarSession.count({ where: { setarProfileId: profile.id } }),
-          this.prisma.setarTuitionPayment.count({ where: { setarProfileId: profile.id } }),
-        ])
-      : [0, 0];
-    const sessionsInCurrentCycle = Math.min(
-      Math.max(sessions - tuitionPayments * SESSIONS_PER_PAYMENT, 0),
-      SESSIONS_PER_PAYMENT,
-    );
+    const [banks, funds, movements, categories, debtSummary, installments, paymentCounts] =
+      await Promise.all([
+        this.prisma.bankAccount.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
+        this.prisma.fund.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
+        this.prisma.assetMovement.groupBy({
+          by: ["assetKind", "assetId"],
+          where: { userId },
+          _sum: { amountToman: true, amountGram: true, amountUsd: true },
+        }),
+        this.prisma.category.findMany({ where: { id: { in: categoryIds } } }),
+        this.debts.summary(userId),
+        this.prisma.installment.findMany({ where: { userId, archived: false } }),
+        this.prisma.installmentPayment.groupBy({
+          by: ["installmentId"],
+          where: { installment: { userId } },
+          _count: { _all: true },
+        }),
+      ]);
 
     const names = new Map(categories.map((category) => [category.id, category.name]));
-    type TrendRow = {
-      type: "INCOME" | "EXPENSE";
-      categoryId: string;
-      amountToman: number;
-    };
-    const buckets: TrendRow[][] = monthValues.map(() => []);
+    // Month bounds are resolved once, then each row is bucketed with a numeric
+    // comparison instead of re-parsing ISO strings for every month.
+    const bounds: [number, number][] = monthValues.map((value) => [
+      new Date(value.view.start).getTime(),
+      new Date(value.view.end).getTime(),
+    ]);
+    const buckets: CashRow[][] = monthValues.map(() => []);
     for (const row of windowRows) {
       const timestamp = row.occurredAt.getTime();
-      for (let index = 0; index < monthValues.length; index += 1) {
-        const value = monthValues[index];
-        if (value === undefined) continue;
-        const start = new Date(value.view.start).getTime();
-        const end = new Date(value.view.end).getTime();
-        if (timestamp >= start && timestamp < end) {
-          buckets[index]?.push({
-            type: row.type,
-            categoryId: row.categoryId,
-            amountToman: Number(row.amountToman),
-          });
+      for (let index = 0; index < bounds.length; index += 1) {
+        const bound = bounds[index];
+        if (bound === undefined) continue;
+        if (timestamp >= bound[0] && timestamp < bound[1]) {
+          buckets[index]?.push(row);
           break;
         }
       }
     }
-    const totals = (rows: TrendRow[]) => {
-      let incomeToman = 0;
-      let expenseToman = 0;
-      for (const row of rows) {
-        if (row.type === "INCOME") incomeToman += row.amountToman;
-        else expenseToman += row.amountToman;
-      }
-      return { incomeToman, expenseToman, netCashFlowToman: incomeToman - expenseToman };
-    };
-    const breakdown = (rows: TrendRow[], type: "INCOME" | "EXPENSE") => {
-      const values = rows
-        .filter((row) => row.type === type)
-        .map((row) => ({
-          categoryId: row.categoryId,
-          name: names.get(row.categoryId) ?? "دسته‌بندی حذف‌شده",
-          amountToman: row.amountToman,
-          percentage: 0,
-        }));
-      const total = values.reduce((sum, value) => sum + value.amountToman, 0);
-      for (const value of values) {
-        value.percentage = total === 0 ? 0 : Math.round((value.amountToman / total) * 10000) / 100;
-      }
-      return values.sort((a, b) => b.amountToman - a.amountToman);
-    };
-    const current = totals(buckets[6] ?? []);
-    const previous = totals(buckets[5] ?? []);
+    const current = this.cashTotals(buckets[6] ?? []);
+    const previous = this.cashTotals(buckets[5] ?? []);
 
     const balanceByAsset = new Map(
       movements.map((row) => [`${row.assetKind}:${row.assetId}`, row._sum.amountToman ?? 0n]),
@@ -465,12 +430,12 @@ export class DashboardService {
         previousExpenseToman: previous.expenseToman,
         previousNetCashFlowToman: previous.netCashFlowToman,
       },
-      expenseCategories: breakdown(buckets[6] ?? [], "EXPENSE"),
-      incomeCategories: breakdown(buckets[6] ?? [], "INCOME"),
+      expenseCategories: this.categoryBreakdown(buckets[6] ?? [], TransactionType.EXPENSE, names),
+      incomeCategories: this.categoryBreakdown(buckets[6] ?? [], TransactionType.INCOME, names),
       trend: monthValues.map((value, index) => ({
         month: value.view.key,
         label: value.view.label,
-        ...totals(buckets[index] ?? []),
+        ...this.cashTotals(buckets[index] ?? []),
       })),
       debtSummary,
       installments: {
@@ -496,15 +461,55 @@ export class DashboardService {
           .reduce((sum, row) => sum + Number(row._sum.amountUsd ?? 0n), 0)
           .toString(),
       },
-      setar: {
-        totalSessions: sessions,
-        paidCycles: tuitionPayments,
-        currentCycleNo: tuitionPayments + 1,
-        sessionsInCurrentCycle,
-        sessionsRemaining: SESSIONS_PER_PAYMENT - sessionsInCurrentCycle,
-        tuitionPayments,
-      },
+      // No Setar session/class metrics here on purpose — a Setar tuition payment
+      // is an ordinary Expense, so it is already counted above under its own
+      // expense category like any other expense.
     };
+  }
+
+  /** Income / expense / net totals, counting only the OWNER's share of expenses. */
+  private cashTotals(rows: CashRow[]): {
+    incomeToman: number;
+    expenseToman: number;
+    netCashFlowToman: number;
+  } {
+    let incomeToman = 0n;
+    let expenseToman = 0n;
+    for (const row of rows) {
+      if (row.type === TransactionType.INCOME) incomeToman += ownerAmount(row);
+      else expenseToman += ownerAmount(row);
+    }
+    const income = Number(incomeToman);
+    const expense = Number(expenseToman);
+    return { incomeToman: income, expenseToman: expense, netCashFlowToman: income - expense };
+  }
+
+  /**
+   * One entry per category, with every transaction in that category summed
+   * together (two "شهریه سه‌تار" rows become a single 2,500,000 row). Uses the
+   * owner's share for expenses so a split bill only charges the payer their part.
+   */
+  private categoryBreakdown(
+    rows: CashRow[],
+    type: TransactionType,
+    names: Map<string, string>,
+  ): DashboardCategoryDto[] {
+    const byCategory = new Map<string, bigint>();
+    for (const row of rows) {
+      if (row.type !== type) continue;
+      byCategory.set(row.categoryId, (byCategory.get(row.categoryId) ?? 0n) + ownerAmount(row));
+    }
+    const values = [...byCategory.entries()].map(([categoryId, amount]) => ({
+      categoryId,
+      name: names.get(categoryId) ?? "دسته‌بندی حذف‌شده",
+      amountToman: Number(amount),
+      percentage: 0,
+    }));
+    const total = values.reduce((sum, value) => sum + value.amountToman, 0);
+    for (const value of values) {
+      value.percentage = total === 0 ? 0 : Math.round((value.amountToman / total) * 10000) / 100;
+    }
+    return values.sort((a, b) => b.amountToman - a.amountToman);
   }
 
   private transactionDto(

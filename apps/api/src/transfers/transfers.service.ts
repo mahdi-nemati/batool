@@ -1,9 +1,15 @@
 import { Injectable } from "@nestjs/common";
 import type { Prisma, Transfer } from "@batool/database";
-import { AssetKind, type AssetRefDto, type TransferDto } from "@batool/types";
+import {
+  AssetKind,
+  type AssetRefDto,
+  type PaginatedResponse,
+  type TransferDto,
+} from "@batool/types";
 import { PrismaService } from "../database/prisma.service";
 import { ApiError } from "../common/errors/api-error";
 import { parseToman } from "../common/validation/money";
+import { paginate, type PageRequest } from "../common/pagination/pagination";
 import { Decimal, parseQuantity } from "../common/validation/quantity";
 import { formatQuantityFa, formatTomanFa } from "../common/formatting/fa";
 import { AssetRegistryService, type ResolvedAsset } from "../assets/asset-registry.service";
@@ -238,20 +244,29 @@ export class TransfersService {
     };
   }
 
-  async list(userId: string, assetKind?: AssetKind): Promise<TransferDto[]> {
-    const transfers = await this.prisma.transfer.findMany({
-      where: {
-        userId,
-        ...(assetKind !== undefined
-          ? {
-              OR: [{ sourceKind: assetKind }, { destinationKind: assetKind }],
-            }
-          : {}),
-      },
-      orderBy: { occurredAt: "desc" },
-      take: 100,
-    });
-    return Promise.all(
+  async list(
+    userId: string,
+    assetKind: AssetKind | undefined,
+    page: PageRequest,
+  ): Promise<PaginatedResponse<TransferDto>> {
+    const where: Prisma.TransferWhereInput = {
+      userId,
+      ...(assetKind !== undefined
+        ? {
+            OR: [{ sourceKind: assetKind }, { destinationKind: assetKind }],
+          }
+        : {}),
+    };
+    const [transfers, total] = await Promise.all([
+      this.prisma.transfer.findMany({
+        where,
+        orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
+        skip: page.skip,
+        take: page.take,
+      }),
+      this.prisma.transfer.count({ where }),
+    ]);
+    const data = await Promise.all(
       transfers.map(async (t) =>
         this.toDto(
           t,
@@ -268,6 +283,7 @@ export class TransfersService {
         ),
       ),
     );
+    return paginate(data, total, page);
   }
 
   private async labelFor(userId: string, kind: AssetKind, id: string): Promise<string> {

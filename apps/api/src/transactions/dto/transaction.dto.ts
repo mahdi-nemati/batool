@@ -4,7 +4,6 @@ import {
   IsIn,
   IsInt,
   IsISO8601,
-  IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
@@ -18,21 +17,19 @@ const TYPES: TransactionType[] = [TransactionType.INCOME, TransactionType.EXPENS
 
 /** A participant share on a split expense (owner share is derived, not sent). */
 export class SplitShareDto {
-  @IsString()
-  @IsNotEmpty({ message: "نام شرکت‌کننده الزامی است" })
-  @MaxLength(60, { message: "نام شرکت‌کننده حداکثر ۶۰ نویسه باشد" })
-  label!: string;
-
   @Type(() => Number)
   @IsInt({ message: "سهم باید عدد صحیح باشد" })
   @Min(1, { message: "سهم باید بزرگ‌تر از صفر باشد" })
   amountToman!: number;
 
-  // Optional: resolve this participant to a counterparty so a receivable Debt
-  // Event is created atomically with the split expense (Phase 4).
-  @IsOptional()
-  @IsString()
-  counterpartyId?: string;
+  /**
+   * Required: a shared-expense participant is always one of the user's existing
+   * Counterparties. There is no free-text participant name — the counterparty's
+   * nickname is the single source of truth for the participant label, so the
+   * client cannot invent (or desynchronise) a name.
+   */
+  @IsString({ message: "برای هر سهم باید یک طرف حساب انتخاب شود" })
+  counterpartyId!: string;
 }
 
 export class CreateTransactionDto {

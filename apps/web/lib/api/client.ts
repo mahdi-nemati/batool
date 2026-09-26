@@ -28,6 +28,39 @@ export interface RequestOptions {
 }
 
 /**
+ * Builds `?a=1&b=2` from defined values only, returning "" when nothing is set.
+ * Shared by every list endpoint so pagination/filter params are encoded the same
+ * way across the app. Takes entries (not an object) so any caller shape works,
+ * including typed filter objects without an index signature.
+ */
+export function queryString(
+  values: Iterable<readonly [string, string | number | undefined]>,
+): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of values) {
+    if (value !== undefined && value !== "") {
+      params.set(key, String(value));
+    }
+  }
+  const encoded = params.toString();
+  return encoded.length > 0 ? `?${encoded}` : "";
+}
+
+/** Detail event used by the global ToastProvider to surface backend failures. */
+export const API_TOAST_EVENT = "batool:toast";
+
+export interface ApiToastDetail {
+  message: string;
+  tone: "error" | "success" | "info";
+  fields?: Record<string, string>;
+}
+
+function emitToast(detail: ApiToastDetail): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent<ApiToastDetail>(API_TOAST_EVENT, { detail }));
+}
+
+/**
  * Sends a request with credentials included so the HttpOnly session cookie is
  * transmitted on same-site (localhost cross-port) requests.
  */
@@ -61,21 +94,17 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     } catch {
       // Non-JSON error body (e.g. proxy) — keep the generic message.
     }
-    if (isMutation && typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("batool:toast", { detail: { message, tone: "error" } }));
-    }
+    // Every backend failure is surfaced through the global notification channel,
+    // not just mutations: a failed GET must not fail silently either.
+    emitToast({ message, tone: "error", ...(fields ? { fields } : {}) });
     throw new ApiClientError(response.status, code, message, fields);
   }
 
   if (response.status === 204) {
     return undefined as T;
   }
-  if (isMutation && typeof window !== "undefined") {
-    window.dispatchEvent(
-      new CustomEvent("batool:toast", {
-        detail: { message: "عملیات با موفقیت انجام شد", tone: "success" },
-      }),
-    );
+  if (isMutation) {
+    emitToast({ message: "عملیات با موفقیت انجام شد", tone: "success" });
   }
   return (await response.json()) as T;
 }

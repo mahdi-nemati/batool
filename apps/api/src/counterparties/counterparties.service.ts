@@ -1,8 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@batool/database";
-import { CounterpartyKind, type ConnectionDto, type CounterpartyDto } from "@batool/types";
+import {
+  CounterpartyKind,
+  type ConnectionDto,
+  type CounterpartyDto,
+  type CounterpartyHistoryDto,
+} from "@batool/types";
 import { PrismaService } from "../database/prisma.service";
 import { ApiError } from "../common/errors/api-error";
+import type { PageRequest } from "../common/pagination/pagination";
 import { DebtsService } from "../debts/debts.service";
 import type { CreateExternalCounterpartyDto, UpdateCounterpartyDto } from "./dto/counterparty.dto";
 
@@ -78,9 +84,9 @@ export class CounterpartiesService {
     );
   }
 
-  async detail(userId: string, id: string) {
+  async detail(userId: string, id: string, page: PageRequest): Promise<CounterpartyHistoryDto> {
     // Validates ownership; throws 404 for foreign/unknown counterparties.
-    return this.debts.history(userId, id);
+    return this.debts.history(userId, id, page);
   }
 
   // ---- connections (registered users) ------------------------------------

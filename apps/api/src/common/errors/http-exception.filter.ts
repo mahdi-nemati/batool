@@ -6,10 +6,35 @@ import {
   HttpException,
   Logger,
 } from "@nestjs/common";
+import { Prisma } from "@batool/database";
 import type { Response } from "express";
 import { randomUUID } from "node:crypto";
 import { ApiError } from "./api-error";
 import { ErrorCode, type ApiErrorBody } from "./error-codes";
+
+/**
+ * Turns a Prisma unique-constraint failure into a 409 with a message about the
+ * field that collided. This is what makes uniqueness race-proof: the
+ * application-level "does it already exist?" check is only a fast path, and the
+ * database index is the real guarantee. Two concurrent registrations that pass
+ * the pre-check both hit the index, and the loser gets this conflict response
+ * instead of a 500.
+ */
+function uniqueConstraintError(meta: unknown): ApiError {
+  const target = Array.isArray((meta as { target?: unknown } | undefined)?.target)
+    ? (meta as { target: string[] }).target
+    : [];
+  const known: Record<string, string> = {
+    username: "این نام کاربری قبلاً ثبت شده است",
+    email: "این ایمیل قبلاً ثبت شده است",
+  };
+  const fields: Record<string, string> = {};
+  for (const entry of target) {
+    const field = entry.split("_")[0]?.trim() ?? entry;
+    fields[field] = known[field] ?? "این مقدار قبلاً ثبت شده است";
+  }
+  return ApiError.uniqueConflict(fields);
+}
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -30,6 +55,22 @@ export class HttpExceptionFilter implements ExceptionFilter {
       code = exception.code;
       message = exception.message;
       fields = exception.fields;
+    } else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+      // Unique-constraint races (username / email) and missing-row updates are
+      // client errors, not server faults.
+      if (exception.code === "P2002") {
+        const conflict = uniqueConstraintError(exception.meta);
+        status = conflict.status;
+        code = conflict.code;
+        message = conflict.message;
+        fields = conflict.fields;
+      } else if (exception.code === "P2025") {
+        status = 404;
+        code = ErrorCode.NOT_FOUND;
+        message = "منبع مورد نظر یافت نشد";
+      } else {
+        this.logger.error(exception.stack);
+      }
     } else if (exception instanceof BadRequestException) {
       status = 400;
       code = ErrorCode.VALIDATION_ERROR;

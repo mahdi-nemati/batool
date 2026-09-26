@@ -139,7 +139,8 @@ interface ExpenseDef {
 }
 
 type SplitDef = ExpenseDef & {
-  shares: { label: string; amount: number; cp: string }[];
+  /** `cp` is the counterparty nickname; it is also the participant label. */
+  shares: { amount: number; cp: string }[];
 };
 
 const INCOMES: IncomeDef[] = [
@@ -179,8 +180,22 @@ const INCOMES: IncomeDef[] = [
   { off: -5, day: 8, cat: "هدیه", amount: 2_000_000, desc: "عیدی نوروز", acc: "DAILY" },
   { off: -4, day: 18, cat: "پاداش", amount: 2_000_000, desc: "پاداش سهماهه", acc: "DAILY" },
   { off: 0, day: 10, cat: "پاداش", amount: 1_500_000, desc: "پاداش پروژه تحویل‌شده", acc: "DAILY" },
-  { off: -2, day: 20, cat: "بازگشت هزینه", amount: 800_000, desc: "بازگشت هزینه بیمه", acc: "DAILY" },
-  { off: 0, day: 17, cat: "بازگشت هزینه", amount: 600_000, desc: "بازگشت هزینه اینترنت", acc: "DAILY" },
+  {
+    off: -2,
+    day: 20,
+    cat: "بازگشت هزینه",
+    amount: 800_000,
+    desc: "بازگشت هزینه بیمه",
+    acc: "DAILY",
+  },
+  {
+    off: 0,
+    day: 17,
+    cat: "بازگشت هزینه",
+    amount: 600_000,
+    desc: "بازگشت هزینه اینترنت",
+    acc: "DAILY",
+  },
   { off: -1, day: 16, cat: "متفرقه", amount: 1_000_000, desc: "سود سپرده بانکی", acc: "DAILY" },
 ];
 
@@ -196,7 +211,14 @@ const MONTHLY_EXPENSES: Record<number, ExpenseDef[]> = {
     { off: -6, day: 11, cat: "خوراک", amount: 900_000, desc: "خرید هفتگی بازار", acc: "DAILY" },
     { off: -6, day: 18, cat: "خوراک", amount: 780_000, desc: "خرید هفتگی بازار", acc: "DAILY" },
     { off: -6, day: 25, cat: "خوراک", amount: 820_000, desc: "خرید هفتگی بازار", acc: "DAILY" },
-    { off: -6, day: 8, cat: "خرید", amount: 1_200_000, desc: "سوپرمارکت و نیازهای خانه", acc: "DAILY" },
+    {
+      off: -6,
+      day: 8,
+      cat: "خرید",
+      amount: 1_200_000,
+      desc: "سوپرمارکت و نیازهای خانه",
+      acc: "DAILY",
+    },
     { off: -6, day: 7, cat: "حملونقل", amount: 850_000, desc: "بنزین", acc: "DAILY" },
     { off: -6, day: 14, cat: "حملونقل", amount: 350_000, desc: "کرایه و اسنپ", acc: "DAILY" },
     { off: -6, day: 12, cat: "تفریح", amount: 800_000, desc: "سینما و کافه", acc: "MAIN" },
@@ -227,7 +249,14 @@ const MONTHLY_EXPENSES: Record<number, ExpenseDef[]> = {
     { off: -4, day: 11, cat: "خوراک", amount: 860_000, desc: "خرید هفتگی بازار", acc: "DAILY" },
     { off: -4, day: 18, cat: "خوراک", amount: 760_000, desc: "خرید هفتگی بازار", acc: "DAILY" },
     { off: -4, day: 26, cat: "خوراک", amount: 800_000, desc: "خرید هفتگی بازار", acc: "DAILY" },
-    { off: -4, day: 8, cat: "خرید", amount: 1_150_000, desc: "سوپرمارکت و نیازهای خانه", acc: "DAILY" },
+    {
+      off: -4,
+      day: 8,
+      cat: "خرید",
+      amount: 1_150_000,
+      desc: "سوپرمارکت و نیازهای خانه",
+      acc: "DAILY",
+    },
     { off: -4, day: 7, cat: "حملونقل", amount: 830_000, desc: "بنزین", acc: "DAILY" },
     { off: -4, day: 14, cat: "حملونقل", amount: 340_000, desc: "کرایه و اسنپ", acc: "DAILY" },
     { off: -4, day: 12, cat: "تفریح", amount: 750_000, desc: "کافه و خیابان‌گردی", acc: "MAIN" },
@@ -302,8 +331,8 @@ const SPLITS: SplitDef[] = [
     desc: "شام دوستانه",
     acc: "DAILY",
     shares: [
-      { label: "سارا", amount: 1_200_000, cp: "سارا" },
-      { label: "مهدی", amount: 1_200_000, cp: "مهدی" },
+      { amount: 1_200_000, cp: "سارا" },
+      { amount: 1_200_000, cp: "مهدی" },
     ],
   },
   {
@@ -314,8 +343,8 @@ const SPLITS: SplitDef[] = [
     desc: "ناهار جمع رفقا",
     acc: "DAILY",
     shares: [
-      { label: "سارا", amount: 1_500_000, cp: "سارا" },
-      { label: "مریم", amount: 1_500_000, cp: "مریم" },
+      { amount: 1_500_000, cp: "سارا" },
+      { amount: 1_500_000, cp: "مریم" },
     ],
   },
 ];
@@ -332,12 +361,45 @@ interface DebtDef {
 }
 
 const DEBT_OBLIGATIONS: DebtDef[] = [
-  { off: -5, day: 18, cp: "احمد", direction: DebtDirection.I_OWE, amount: 3_000_000, desc: "قرض از احمد" },
-  { off: -4, day: 12, cp: "مریم", direction: DebtDirection.I_OWE, amount: 4_500_000, desc: "قرض از مریم" },
-  { off: -2, day: 9, cp: "مهدی", direction: DebtDirection.OWES_ME, amount: 2_500_000, desc: "قرض به مهدی" },
-  { off: -1, day: 15, cp: "سارا", direction: DebtDirection.OWES_ME, amount: 5_000_000, desc: "قرض به سارا" },
+  {
+    off: -5,
+    day: 18,
+    cp: "احمد",
+    direction: DebtDirection.I_OWE,
+    amount: 3_000_000,
+    desc: "قرض از احمد",
+  },
+  {
+    off: -4,
+    day: 12,
+    cp: "مریم",
+    direction: DebtDirection.I_OWE,
+    amount: 4_500_000,
+    desc: "قرض از مریم",
+  },
+  {
+    off: -2,
+    day: 9,
+    cp: "مهدی",
+    direction: DebtDirection.OWES_ME,
+    amount: 2_500_000,
+    desc: "قرض به مهدی",
+  },
+  {
+    off: -1,
+    day: 15,
+    cp: "سارا",
+    direction: DebtDirection.OWES_ME,
+    amount: 5_000_000,
+    desc: "قرض به سارا",
+  },
 ];
 
+/**
+ * Debt payments only. The service rejects a payment when the current user is
+ * not the debtor, so every entry here belongs to a counterparty the seeded user
+ * owes; there is no "receive" settlement.
+ */
 const DEBT_SETTLEMENTS: {
   off: number;
   day: number;
@@ -346,9 +408,25 @@ const DEBT_SETTLEMENTS: {
   acc: Acc;
   desc: string;
 }[] = [
-  { off: -3, day: 22, cp: "احمد", amount: 3_000_000, acc: "MAIN", desc: "تسویه کامل قرض از احمد" },
-  { off: -1, day: 20, cp: "سارا", amount: 4_500_000, acc: "MAIN", desc: "بخشی از قرض به سارا برگشت" },
-  { off: 0, day: 4, cp: "مهدی", amount: 3_700_000, acc: "MAIN", desc: "تسویه کامل قرض به مهدی" },
+  {
+    off: -3,
+    day: 22,
+    cp: "احمد",
+    amount: 3_000_000,
+    acc: "MAIN",
+    desc: "تسویه کامل قرض از احمد",
+  },
+  {
+    // The seeded user owes مهدی nothing (the مهدی debt runs the other way), so
+    // the second payment belongs to مریم, whose 4,500,000 obligation was reduced
+    // to 3,000,000 by her 1,500,000 share of the split lunch.
+    off: 0,
+    day: 4,
+    cp: "مریم",
+    amount: 1_500_000,
+    acc: "MAIN",
+    desc: "بخشی از قرض به مریم پرداخت شد",
+  },
 ];
 
 interface TransferOp {
@@ -391,7 +469,10 @@ async function run(): Promise<void> {
     // ---- guard: never clobber an existing account -------------------------
     const existing = await prisma.user.findFirst({
       where: {
-        OR: [{ username: CREDENTIALS.username.trim().toLowerCase() }, { email: users.normalizeEmail(CREDENTIALS.email) }],
+        OR: [
+          { username: CREDENTIALS.username.trim().toLowerCase() },
+          { email: users.normalizeEmail(CREDENTIALS.email) },
+        ],
       },
     });
     if (existing !== null) {
@@ -426,6 +507,24 @@ async function run(): Promise<void> {
     await ensureCategory("پروژه", "INCOME");
     await ensureCategory("درمان", "EXPENSE");
     await ensureCategory("خودرو", "EXPENSE");
+    // Installment payments and Setar tuition look these categories up by name.
+    await ensureCategory("اقساط", "EXPENSE");
+    await ensureCategory("شهریه سه‌تار", "EXPENSE");
+    // Every category referenced by the dataset above must exist, otherwise the
+    // run aborts on the first transaction of an unseeded category.
+    for (const name of new Set(INCOMES.map((d) => d.cat))) {
+      await ensureCategory(name, "INCOME");
+    }
+    for (const name of new Set(
+      Object.values(MONTHLY_EXPENSES)
+        .flat()
+        .map((d) => d.cat),
+    )) {
+      await ensureCategory(name, "EXPENSE");
+    }
+    for (const name of new Set(SPLITS.map((d) => d.cat))) {
+      await ensureCategory(name, "EXPENSE");
+    }
     const catId = (type: "INCOME" | "EXPENSE", name: string): string => {
       const id = catMap.get(keyNormalize(`${type}:${name}`));
       if (id === undefined) {
@@ -441,7 +540,8 @@ async function run(): Promise<void> {
       banks.create(userId, { name: "حساب روزمره (سامان)", initialBalanceToman: 12_000_000 }),
     ]);
     log("3 bank accounts created");
-    const accId = (a: Acc): string => (a === "MAIN" ? mainAcc.id : a === "DAILY" ? dailyAcc.id : savingsAcc.id);
+    const accId = (a: Acc): string =>
+      a === "MAIN" ? mainAcc.id : a === "DAILY" ? dailyAcc.id : savingsAcc.id;
 
     const [emergFund, laptopFund, tripFund, charityFund] = await Promise.all([
       funds.create(userId, { name: "صندوق اضطراری", goalToman: 50_000_000 }),
@@ -469,7 +569,8 @@ async function run(): Promise<void> {
       const d = off === 0 ? Math.min(day, Math.max(today.d, 1)) : day;
       return J(mo.y, mo.m, d);
     };
-    const monthLabel = (off: number): string => `${FA_MONTHS[monthOf(off).m - 1]} ${faNum(monthOf(off).y)}`;
+    const monthLabel = (off: number): string =>
+      `${FA_MONTHS[monthOf(off).m - 1]} ${faNum(monthOf(off).y)}`;
     const isPastDay = (off: number, _day: number): boolean => off <= 0;
 
     let incomeCount = 0;
@@ -526,7 +627,9 @@ async function run(): Promise<void> {
           if (counterpartyId === undefined) {
             throw new Error(`[seed] counterparty ${s.cp} not created`);
           }
-          return { label: s.label, amountToman: s.amount, counterpartyId };
+          // The counterparty nickname is the participant label (single source
+          // of truth), exactly like the API does.
+          return { label: s.cp, amountToman: s.amount, counterpartyId };
         }),
       });
       expenseCount += 1;
@@ -558,33 +661,160 @@ async function run(): Promise<void> {
     // ---- 8. transfers (inserted in movement-safe order) -------------------
     const ops: TransferOp[] = [
       // bank → bank sweeps
-      { off: -3, day: 17, srcKind: AssetKind.BANK, srcId: savingsAcc.id, dstKind: AssetKind.BANK, dstId: mainAcc.id, toman: 2_000_000, label: "انتقال پس‌انداز → اصلی" },
-      { off: -1, day: 17, srcKind: AssetKind.BANK, srcId: savingsAcc.id, dstKind: AssetKind.BANK, dstId: mainAcc.id, toman: 2_000_000, label: "انتقال پس‌انداز → اصلی" },
+      {
+        off: -3,
+        day: 17,
+        srcKind: AssetKind.BANK,
+        srcId: savingsAcc.id,
+        dstKind: AssetKind.BANK,
+        dstId: mainAcc.id,
+        toman: 2_000_000,
+        label: "انتقال پس‌انداز → اصلی",
+      },
+      {
+        off: -1,
+        day: 17,
+        srcKind: AssetKind.BANK,
+        srcId: savingsAcc.id,
+        dstKind: AssetKind.BANK,
+        dstId: mainAcc.id,
+        toman: 2_000_000,
+        label: "انتقال پس‌انداز → اصلی",
+      },
       // savings → funds (deposits first)
-      ...([-6, -5, -4, -3, -2, -1, 0] as const).map(
-        (off): TransferOp => ({ off, day: 16, srcKind: AssetKind.BANK, srcId: savingsAcc.id, dstKind: AssetKind.FUND, dstId: emergFund.id, toman: 2_000_000, label: "واریز به صندوق اضطراری" }),
-      ),
-      ...([-5, -4, -3, -2, -1, 0] as const).map(
-        (off): TransferOp => ({ off, day: 18, srcKind: AssetKind.BANK, srcId: savingsAcc.id, dstKind: AssetKind.FUND, dstId: laptopFund.id, toman: 1_500_000, label: "واریز به صندوق لپ‌تاپ" }),
-      ),
-      ...([-5, -4, -3, -2] as const).map(
-        (off): TransferOp => ({ off, day: 20, srcKind: AssetKind.BANK, srcId: savingsAcc.id, dstKind: AssetKind.FUND, dstId: tripFund.id, toman: 1_200_000, label: "واریز به صندوق سفر" }),
-      ),
-      ...([-4, -2, 0] as const).map(
-        (off): TransferOp => ({ off, day: 22, srcKind: AssetKind.BANK, srcId: dailyAcc.id, dstKind: AssetKind.FUND, dstId: charityFund.id, toman: 500_000, label: "واریز به صندوق خیریه" }),
-      ),
+      ...([-6, -5, -4, -3, -2, -1, 0] as const).map((off): TransferOp => ({
+        off,
+        day: 16,
+        srcKind: AssetKind.BANK,
+        srcId: savingsAcc.id,
+        dstKind: AssetKind.FUND,
+        dstId: emergFund.id,
+        toman: 2_000_000,
+        label: "واریز به صندوق اضطراری",
+      })),
+      ...([-5, -4, -3, -2, -1, 0] as const).map((off): TransferOp => ({
+        off,
+        day: 18,
+        srcKind: AssetKind.BANK,
+        srcId: savingsAcc.id,
+        dstKind: AssetKind.FUND,
+        dstId: laptopFund.id,
+        toman: 1_500_000,
+        label: "واریز به صندوق لپ‌تاپ",
+      })),
+      ...([-5, -4, -3, -2] as const).map((off): TransferOp => ({
+        off,
+        day: 20,
+        srcKind: AssetKind.BANK,
+        srcId: savingsAcc.id,
+        dstKind: AssetKind.FUND,
+        dstId: tripFund.id,
+        toman: 1_200_000,
+        label: "واریز به صندوق سفر",
+      })),
+      ...([-4, -2, 0] as const).map((off): TransferOp => ({
+        off,
+        day: 22,
+        srcKind: AssetKind.BANK,
+        srcId: dailyAcc.id,
+        dstKind: AssetKind.FUND,
+        dstId: charityFund.id,
+        toman: 500_000,
+        label: "واریز به صندوق خیریه",
+      })),
       // fund → bank (after that fund's deposits)
-      { off: -2, day: 8, srcKind: AssetKind.FUND, srcId: tripFund.id, dstKind: AssetKind.BANK, dstId: dailyAcc.id, toman: 4_000_000, label: "برداشت صندوق سفر برای سفر" },
+      {
+        off: -2,
+        day: 8,
+        srcKind: AssetKind.FUND,
+        srcId: tripFund.id,
+        dstKind: AssetKind.BANK,
+        dstId: dailyAcc.id,
+        toman: 4_000_000,
+        label: "برداشت صندوق سفر برای سفر",
+      },
       // gold (buys before the sell)
-      { off: -5, day: 21, srcKind: AssetKind.BANK, srcId: savingsAcc.id, dstKind: AssetKind.GOLD, toman: 11_200_000, gram: 2, label: "خرید ۲ گرم طلا" },
-      { off: -3, day: 21, srcKind: AssetKind.BANK, srcId: savingsAcc.id, dstKind: AssetKind.GOLD, toman: 17_100_000, gram: 3, label: "خرید ۳ گرم طلا" },
-      { off: -2, day: 27, srcKind: AssetKind.GOLD, dstKind: AssetKind.BANK, dstId: savingsAcc.id, toman: 5_950_000, gram: 1, label: "فروش ۱ گرم طلا" },
-      { off: 0, day: 13, srcKind: AssetKind.BANK, srcId: mainAcc.id, dstKind: AssetKind.GOLD, toman: 11_600_000, gram: 2, label: "خرید ۲ گرم طلا" },
+      {
+        off: -5,
+        day: 21,
+        srcKind: AssetKind.BANK,
+        srcId: savingsAcc.id,
+        dstKind: AssetKind.GOLD,
+        toman: 11_200_000,
+        gram: 2,
+        label: "خرید ۲ گرم طلا",
+      },
+      {
+        off: -3,
+        day: 21,
+        srcKind: AssetKind.BANK,
+        srcId: savingsAcc.id,
+        dstKind: AssetKind.GOLD,
+        toman: 17_100_000,
+        gram: 3,
+        label: "خرید ۳ گرم طلا",
+      },
+      {
+        off: -2,
+        day: 27,
+        srcKind: AssetKind.GOLD,
+        dstKind: AssetKind.BANK,
+        dstId: savingsAcc.id,
+        toman: 5_950_000,
+        gram: 1,
+        label: "فروش ۱ گرم طلا",
+      },
+      {
+        off: 0,
+        day: 13,
+        srcKind: AssetKind.BANK,
+        srcId: mainAcc.id,
+        dstKind: AssetKind.GOLD,
+        toman: 11_600_000,
+        gram: 2,
+        label: "خرید ۲ گرم طلا",
+      },
       // USD (buys before the sell)
-      { off: -6, day: 23, srcKind: AssetKind.BANK, srcId: savingsAcc.id, dstKind: AssetKind.USD, toman: 14_325_000, usd: 150, label: "خرید ۱۵۰ دلار" },
-      { off: -3, day: 15, srcKind: AssetKind.USD, dstKind: AssetKind.BANK, dstId: savingsAcc.id, toman: 7_760_000, usd: 80, label: "فروش ۸۰ دلار" },
-      { off: -2, day: 7, srcKind: AssetKind.BANK, srcId: mainAcc.id, dstKind: AssetKind.USD, toman: 19_300_000, usd: 200, label: "خرید ۲۰۰ دلار" },
-      { off: 0, day: 9, srcKind: AssetKind.BANK, srcId: mainAcc.id, dstKind: AssetKind.USD, toman: 24_500_000, usd: 250, label: "خرید ۲۵۰ دلار" },
+      {
+        off: -6,
+        day: 23,
+        srcKind: AssetKind.BANK,
+        srcId: savingsAcc.id,
+        dstKind: AssetKind.USD,
+        toman: 14_325_000,
+        usd: 150,
+        label: "خرید ۱۵۰ دلار",
+      },
+      {
+        off: -3,
+        day: 15,
+        srcKind: AssetKind.USD,
+        dstKind: AssetKind.BANK,
+        dstId: savingsAcc.id,
+        toman: 7_760_000,
+        usd: 80,
+        label: "فروش ۸۰ دلار",
+      },
+      {
+        off: -2,
+        day: 7,
+        srcKind: AssetKind.BANK,
+        srcId: mainAcc.id,
+        dstKind: AssetKind.USD,
+        toman: 19_300_000,
+        usd: 200,
+        label: "خرید ۲۰۰ دلار",
+      },
+      {
+        off: 0,
+        day: 9,
+        srcKind: AssetKind.BANK,
+        srcId: mainAcc.id,
+        dstKind: AssetKind.USD,
+        toman: 24_500_000,
+        usd: 250,
+        label: "خرید ۲۵۰ دلار",
+      },
     ];
 
     let transferCount = 0;
@@ -627,8 +857,22 @@ async function run(): Promise<void> {
       { name: "اقساط موبایل", amount: 1_200_000, total: 8, dueDay: 2, startOff: -6, payments: 6 },
       { name: "اقساط مبل سالن", amount: 850_000, total: 8, dueDay: 4, startOff: -6, payments: 6 },
       { name: "اقساط تلویزیون", amount: 650_000, total: 6, dueDay: 1, startOff: -3, payments: 3 },
-      { name: "اقساط تعمیر ماشین", amount: 300_000, total: 6, dueDay: 7, startOff: -6, payments: 0 },
-      { name: "اقساط یخچال فریزر", amount: 500_000, total: 12, dueDay: 20, startOff: 0, payments: 0 },
+      {
+        name: "اقساط تعمیر ماشین",
+        amount: 300_000,
+        total: 6,
+        dueDay: 7,
+        startOff: -6,
+        payments: 0,
+      },
+      {
+        name: "اقساط یخچال فریزر",
+        amount: 500_000,
+        total: 12,
+        dueDay: 20,
+        startOff: 0,
+        payments: 0,
+      },
     ];
     const installmentIds: string[] = [];
     for (const p of plans) {
@@ -678,32 +922,47 @@ async function run(): Promise<void> {
     );
     console.log(`login OK → token issued for ${login.user.username}`);
 
-    const setarProfileId = (
-      await prisma.setarProfile.findUnique({ where: { userId } })
-    )?.id;
+    const setarProfileId = (await prisma.setarProfile.findUnique({ where: { userId } }))?.id;
 
-    const [bankCount, fundCount, txnCount, transferCountDb, cpCount, debtCount, instCount, instPayCount, sessCount, setarPayCount, movCount, goldWalCount, usdWalCount] =
-      await Promise.all([
-        prisma.bankAccount.count({ where: { userId } }),
-        prisma.fund.count({ where: { userId } }),
-        prisma.financialTransaction.count({ where: { userId } }),
-        prisma.transfer.count({ where: { userId } }),
-        prisma.counterparty.count({ where: { ownerUserId: userId } }),
-        prisma.debtEvent.count({ where: { ownerUserId: userId } }),
-        prisma.installment.count({ where: { userId } }),
-        prisma.installmentPayment.count({ where: { installment: { userId } } }),
-        prisma.setarSession.count({ where: setarProfileId !== undefined ? { setarProfileId } : {} }),
-        prisma.setarTuitionPayment.count({ where: setarProfileId !== undefined ? { setarProfileId } : {} }),
-        prisma.assetMovement.count({ where: { userId } }),
-        prisma.goldWallet.count({ where: { userId } }),
-        prisma.usdWallet.count({ where: { userId } }),
-      ]);
+    const [
+      bankCount,
+      fundCount,
+      txnCount,
+      transferCountDb,
+      cpCount,
+      debtCount,
+      instCount,
+      instPayCount,
+      sessCount,
+      setarPayCount,
+      movCount,
+      goldWalCount,
+      usdWalCount,
+    ] = await Promise.all([
+      prisma.bankAccount.count({ where: { userId } }),
+      prisma.fund.count({ where: { userId } }),
+      prisma.financialTransaction.count({ where: { userId } }),
+      prisma.transfer.count({ where: { userId } }),
+      prisma.counterparty.count({ where: { ownerUserId: userId } }),
+      prisma.debtEvent.count({ where: { ownerUserId: userId } }),
+      prisma.installment.count({ where: { userId } }),
+      prisma.installmentPayment.count({ where: { installment: { userId } } }),
+      prisma.setarSession.count({ where: setarProfileId !== undefined ? { setarProfileId } : {} }),
+      prisma.setarTuitionPayment.count({
+        where: setarProfileId !== undefined ? { setarProfileId } : {},
+      }),
+      prisma.assetMovement.count({ where: { userId } }),
+      prisma.goldWallet.count({ where: { userId } }),
+      prisma.usdWallet.count({ where: { userId } }),
+    ]);
     console.log(`bank accounts: ${bankCount}, funds: ${fundCount}`);
     console.log(`transactions: ${txnCount} (income+expense), transfers: ${transferCountDb}`);
     console.log(`counterparties: ${cpCount}, debt events: ${debtCount}`);
     console.log(`installments: ${instCount} (payments: ${instPayCount})`);
     console.log(`setar sessions: ${sessCount}, tuition payments: ${setarPayCount}`);
-    console.log(`gold wallets: ${goldWalCount}, usd wallets: ${usdWalCount}, ledger movements: ${movCount}`);
+    console.log(
+      `gold wallets: ${goldWalCount}, usd wallets: ${usdWalCount}, ledger movements: ${movCount}`,
+    );
 
     // monthly aggregates (real service path)
     const summary = await dashboard.summary(userId);
@@ -723,7 +982,9 @@ async function run(): Promise<void> {
     }
     console.log("monthly income/expense:");
     for (const [key, v] of [...byMonth.entries()].sort()) {
-      console.log(`  ${FA_MONTHS[Number(key.split("-")[1]) - 1]} ${faNum(Number(key.split("-")[0]))}: +${faNum(v.income)} / -${faNum(v.expense)}`);
+      console.log(
+        `  ${FA_MONTHS[Number(key.split("-")[1]) - 1]} ${faNum(Number(key.split("-")[0]))}: +${faNum(v.income)} / -${faNum(v.expense)}`,
+      );
     }
 
     // asset balances (derived from movements, never stored)
@@ -761,8 +1022,15 @@ async function run(): Promise<void> {
       const due = dueDateForOccurrence(inst.startDate, inst.dueDayOfMonth, next);
       const du = Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate());
       const remainingDays = Math.ceil((du - todayUtc) / 86400000);
-      const status = remainingDays < 0 ? `${faNum(-remainingDays)} روز معوق` : remainingDays === 0 ? "سررسید امروز" : `${faNum(remainingDays)} روز دیگر`;
-      console.log(`  ${inst.name}: پرداخت‌شده ${faNum(inst._count.payments)}/${faNum(inst.totalCount)} — قسط بعدی ${status}`);
+      const status =
+        remainingDays < 0
+          ? `${faNum(-remainingDays)} روز معوق`
+          : remainingDays === 0
+            ? "سررسید امروز"
+            : `${faNum(remainingDays)} روز دیگر`;
+      console.log(
+        `  ${inst.name}: پرداخت‌شده ${faNum(inst._count.payments)}/${faNum(inst.totalCount)} — قسط بعدی ${status}`,
+      );
     }
 
     console.log("\n========== DONE ==========");

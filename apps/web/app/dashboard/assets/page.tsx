@@ -1,64 +1,19 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { Banknote, Coins, Receipt } from "lucide-react";
-import type { TransferDto } from "@batool/types";
-import { AddAccountForm } from "@/components/finance/AddAccountForm";
-import { AddFundForm } from "@/components/finance/AddFundForm";
-import { TransferForm } from "@/components/finance/TransferForm";
+import { Banknote, Coins, Landmark, PiggyBank } from "lucide-react";
+import { AssetActions } from "@/components/finance/AssetActions";
+import { FundList } from "@/components/finance/FundList";
+import { TransferHistory } from "@/components/finance/TransferHistory";
 import { getAssetsOverviewServer } from "@/lib/api/finance";
-import { formatQuantity, formatTomanUnit } from "@/lib/formatting/persian";
-import { formatJalaliDate } from "@/lib/formatting/jalali";
+import { formatQuantity } from "@/lib/formatting/persian";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Progress } from "@/components/ui/progress";
 
 export const dynamic = "force-dynamic";
 
 const wholeFormat = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 0 });
-
-function assetRoute(kind: string): string {
-  if (kind === "GOLD") return "/dashboard/assets/gold";
-  if (kind === "USD") return "/dashboard/assets/usd";
-  return "/dashboard/assets";
-}
-
-function TransferDescription({ transfer }: { transfer: TransferDto }) {
-  return (
-    <span className="min-w-0">
-      <span className="block font-bold">{transfer.description}</span>
-      <span className="block text-xs text-muted">
-        از <Link className="text-accent-dark" href={assetRoute(transfer.source.kind)}>{transfer.source.name}</Link>{" "}
-        به <Link className="text-accent-dark" href={assetRoute(transfer.destination.kind)}>{transfer.destination.name}</Link>
-      </span>
-    </span>
-  );
-}
-
-function TransferAmount({ transfer }: { transfer: TransferDto }) {
-  if (transfer.amountGram !== null) {
-    return <span>{formatQuantity(transfer.amountGram)} گرم</span>;
-  }
-  if (transfer.amountUsd !== null) {
-    return <span>{formatQuantity(transfer.amountUsd)} دلار</span>;
-  }
-  return <span>{formatTomanUnit(transfer.amountToman ?? 0)}</span>;
-}
-
-function TransferRow({ transfer }: { transfer: TransferDto }) {
-  return (
-    <li className="grid grid-cols-[1fr_auto] items-center gap-3 py-3 text-sm sm:grid-cols-[1fr_auto_auto]">
-      <TransferDescription transfer={transfer} />
-      <span className="shrink-0 text-xs tabular-nums text-muted">
-        {formatJalaliDate(transfer.occurredAt)}
-      </span>
-      <b className="shrink-0 tabular-nums text-ink">
-        <TransferAmount transfer={transfer} />
-      </b>
-    </li>
-  );
-}
 
 export default async function AssetsPage() {
   const store = await cookies();
@@ -86,10 +41,7 @@ export default async function AssetsPage() {
           <h1 className="text-3xl font-bold">دارایی‌ها</h1>
           <p className="mt-1 text-sm text-muted">حساب‌ها، صندوق‌ها، طلا و دلار</p>
         </div>
-        <Link
-          href="/dashboard"
-          className="text-sm font-bold text-primary hover:underline"
-        >
+        <Link href="/dashboard" className="text-sm font-bold text-primary hover:underline">
           ← بازگشت به داشبورد
         </Link>
       </header>
@@ -128,7 +80,8 @@ export default async function AssetsPage() {
               <div className="min-w-0">
                 <p className="text-xs text-muted">طلا</p>
                 <p className="mt-0.5 text-lg font-bold">
-                  {formatQuantity(data.gold.balanceGram)} <span className="text-xs font-normal text-muted">گرم</span>
+                  {formatQuantity(data.gold.balanceGram)}{" "}
+                  <span className="text-xs font-normal text-muted">گرم</span>
                 </p>
                 <p className="mt-0.5 text-xs text-primary">مدیریت خرید و فروش</p>
               </div>
@@ -142,7 +95,8 @@ export default async function AssetsPage() {
               <div className="min-w-0">
                 <p className="text-xs text-muted">دلار</p>
                 <p className="mt-0.5 text-lg font-bold">
-                  {formatQuantity(data.usd.balanceUsd)} <span className="text-xs font-normal text-muted">دلار</span>
+                  {formatQuantity(data.usd.balanceUsd)}{" "}
+                  <span className="text-xs font-normal text-muted">دلار</span>
                 </p>
                 <p className="mt-0.5 text-xs text-primary">مدیریت خرید و فروش</p>
               </div>
@@ -151,90 +105,87 @@ export default async function AssetsPage() {
         </div>
       </div>
 
-      {data.funds.some((fund) => fund.goalToman !== null && fund.goalToman > 0) ? (
-        <section className="flex flex-col gap-3" aria-labelledby="fund-goals-heading">
-          <div>
-            <h2 id="fund-goals-heading" className="text-lg font-semibold">پیشرفت هدف صندوق‌ها</h2>
-            <p className="text-sm text-muted">موجودی فعلی هر صندوق نسبت به هدف پس‌انداز</p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            {data.funds
-              .filter((fund) => fund.goalToman !== null && fund.goalToman > 0)
-              .map((fund) => {
-                const goal = fund.goalToman ?? 0;
-                const remaining = Math.max(goal - fund.balanceToman, 0);
-                return (
-                  <Card key={fund.id} className="flex flex-col gap-4 p-5">
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="font-semibold">{fund.name}</h3>
-                      <span className="text-xs text-muted">هدف: {formatTomanUnit(goal)}</span>
+      <section className="flex flex-col gap-3" aria-labelledby="accounts-heading">
+        <div>
+          <h2 id="accounts-heading" className="text-lg font-semibold">
+            حساب‌های بانکی
+          </h2>
+          <p className="text-sm text-muted">موجودی هر حساب به‌صورت جداگانه</p>
+        </div>
+        {data.bankAccounts.length === 0 ? (
+          <Card>
+            <div className="py-6">
+              <EmptyState
+                icon={Landmark}
+                title="هنوز حساب بانکی ثبت نشده"
+                description="برای ثبت درآمد، هزینه و پرداخت‌ها ابتدا یک حساب بانکی بسازید."
+              />
+            </div>
+          </Card>
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {data.bankAccounts.map((account) => (
+              <li key={account.id}>
+                <Card className="flex h-full flex-col gap-3 p-5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{account.name}</p>
+                      <p className="text-xs text-muted">حساب بانکی</p>
                     </div>
-                    <Progress
-                      value={fund.balanceToman}
-                      max={goal}
-                      label={`موجودی ${formatTomanUnit(fund.balanceToman)} از ${formatTomanUnit(goal)}`}
-                    />
-                    <p className="text-sm text-muted">
-                      {remaining > 0
-                        ? `باقی‌مانده تا هدف: ${formatTomanUnit(remaining)}`
-                        : "هدف این صندوق تکمیل شده است."}
-                    </p>
-                  </Card>
-                );
-              })}
-          </div>
-        </section>
-      ) : null}
+                    {account.isActive ? null : <Badge variant="secondary">غیرفعال</Badge>}
+                  </div>
+                  <p className="text-xl font-bold tabular-nums" dir="ltr">
+                    {wholeFormat.format(account.balanceToman)}
+                    <span className="ms-1 text-xs font-normal text-muted">تومان</span>
+                  </p>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
-        <AddAccountForm />
-        <AddFundForm />
-        <TransferForm
+      <section className="flex flex-col gap-3" aria-labelledby="funds-heading">
+        <div>
+          <h2 id="funds-heading" className="text-lg font-semibold">
+            صندوق‌ها
+          </h2>
+          <p className="text-sm text-muted">موجودی هر صندوق به‌صورت جداگانه</p>
+        </div>
+        {data.funds.length === 0 ? (
+          <Card>
+            <div className="py-6">
+              <EmptyState
+                icon={PiggyBank}
+                title="هنوز صندوقی ثبت نشده"
+                description="صندوق‌ها برای پس‌انداز استفاده می‌شوند و فقط با انتقال بین حساب و صندوق شارژ می‌شوند."
+              />
+            </div>
+          </Card>
+        ) : (
+          <FundList funds={data.funds} />
+        )}
+      </section>
+
+      <section>
+        <AssetActions
           accounts={data.bankAccounts.map((a) => ({ id: a.id, name: a.name }))}
           funds={data.funds.map((f) => ({ id: f.id, name: f.name }))}
         />
       </section>
 
-      <Panel
-        title="انتقالات"
-        badge={
-          <Badge variant="secondary">{wholeFormat.format(data.transfers.length)} مورد</Badge>
-        }
-      >
-        {data.transfers.length === 0 ? (
-          <div className="py-6">
-            <EmptyState
-              icon={Receipt}
-              title="هنوز انتقالی ثبت نشده"
-              description="با افزودن حساب، صندوق یا خرید و فروش طلا و دلار، تاریخچه‌ای از جابه‌جایی‌ها اینجا نمایش داده می‌شود."
-            />
-          </div>
-        ) : (
-          <ul className="flex flex-col divide-y divide-line">
-            {data.transfers.map((transfer) => (
-              <TransferRow key={transfer.id} transfer={transfer} />
-            ))}
-          </ul>
-        )}
+      <Panel title="انتقالات">
+        <TransferHistory initial={data.transfers} />
       </Panel>
     </div>
   );
 }
 
-function Panel({
-  title,
-  badge,
-  children,
-}: {
-  title: string;
-  badge?: React.ReactNode;
-  children: React.ReactNode;
-}) {
+function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Card>
-      <div className="flex items-center justify-between gap-3 p-6 pb-4">
+      <div className="p-6 pb-4">
         <h2 className="text-lg font-bold">{title}</h2>
-        {badge}
       </div>
       <div className="p-6 pt-0">{children}</div>
     </Card>

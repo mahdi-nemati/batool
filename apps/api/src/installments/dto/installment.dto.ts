@@ -11,7 +11,9 @@ import {
 } from "class-validator";
 import { AssetKind } from "@batool/types";
 
-const ASSET_KINDS: AssetKind[] = [AssetKind.BANK, AssetKind.FUND];
+// Business rule: installments are paid from a Bank Account only. Funds are
+// savings targets and may never act as a payment source.
+const ASSET_KINDS: AssetKind[] = [AssetKind.BANK];
 
 export class CreateInstallmentDto {
   @IsNotEmpty({ message: "نام اقساط الزامی است" })
@@ -93,7 +95,7 @@ export class UpdateInstallmentDto {
 
 /** Payment action — the amount is NEVER sent by the client (server source of truth). */
 export class PayInstallmentDto {
-  @IsIn(ASSET_KINDS, { message: "تسویه فقط با حساب بانکی یا صندوق انجام می‌شود" })
+  @IsIn(ASSET_KINDS, { message: "پرداخت قسط فقط از حساب بانکی انجام می‌شود" })
   assetKind!: AssetKind;
 
   @IsString()

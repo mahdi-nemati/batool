@@ -3,12 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { ArrowLeftRight } from "lucide-react";
 import type { AssetKind } from "@batool/types";
-import { ApiClientError } from "@/lib/api/client";
 import { createTransfer } from "@/lib/api/finance";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { MoneyInput } from "@/components/ui/MoneyInput";
 import { Select, type SelectOption } from "@/components/ui/select";
@@ -23,6 +20,7 @@ interface Endpoint {
 interface Props {
   accounts: Endpoint[];
   funds: Endpoint[];
+  onDone?: () => void;
 }
 
 interface Sel {
@@ -45,8 +43,9 @@ const endpointOptions = (accounts: Endpoint[], funds: Endpoint[]): SelectOption[
 /**
  * Toman transfer between bank accounts and funds. Gold/USD are deliberately NOT
  * endpoints here: their buy/sell flows have dedicated wallet pages.
+ * Body-only, so it can live inside a dialog.
  */
-export function TransferForm({ accounts, funds }: Props) {
+export function TransferForm({ accounts, funds, onDone }: Props) {
   const router = useRouter();
   const options = endpointOptions(accounts, funds);
 
@@ -81,78 +80,61 @@ export function TransferForm({ accounts, funds }: Props) {
       });
       setToman("");
       router.refresh();
-    } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "خطای ناشناخته");
+      onDone?.();
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ArrowLeftRight className="size-4 text-primary" aria-hidden />
-          انتقال وجه
-        </CardTitle>
-        <CardDescription>جابه‌جایی تومان بین حساب‌ها و صندوق‌ها.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={onSubmit} className="flex flex-col gap-3">
-          {error !== null ? (
-            <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
-              {error}
-            </p>
-          ) : null}
-          <div className="space-y-1.5">
-            <Label htmlFor="tr-src">از</Label>
-            <Select
-              id="tr-src"
-              aria-label="مبدأ"
-              required
-              placeholder="مبدأ را انتخاب کنید"
-              options={options}
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="tr-dst">به</Label>
-            <Select
-              id="tr-dst"
-              aria-label="مقصد"
-              required
-              placeholder="مقصد را انتخاب کنید"
-              options={options}
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="tr-toman">مبلغ (تومان)</Label>
-            <MoneyInput
-              id="tr-toman"
-              value={toman}
-              onChange={setToman}
-              className={moneyInputClass}
-            />
-          </div>
-          <Button type="submit" disabled={busy} className="self-start">
-            {busy ? "…" : "ثبت انتقال"}
-          </Button>
-          <p className="text-xs text-muted">
-            برای خرید/فروش{" "}
-            <Link href="/dashboard/assets/gold" className="text-accent-dark underline">
-              طلا
-            </Link>{" "}
-            یا{" "}
-            <Link href="/dashboard/assets/usd" className="text-accent-dark underline">
-              دلار
-            </Link>{" "}
-            از صفحات اختصاصی آن‌ها استفاده کنید.
-          </p>
-        </form>
-      </CardContent>
-    </Card>
+    <form onSubmit={onSubmit} className="flex flex-col gap-3">
+      {error !== null ? (
+        <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
+      <div className="space-y-1.5">
+        <Label htmlFor="tr-src">از</Label>
+        <Select
+          id="tr-src"
+          aria-label="مبدأ"
+          required
+          placeholder="مبدأ را انتخاب کنید"
+          options={options}
+          value={source}
+          onChange={(e) => setSource(e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="tr-dst">به</Label>
+        <Select
+          id="tr-dst"
+          aria-label="مقصد"
+          required
+          placeholder="مقصد را انتخاب کنید"
+          options={options}
+          value={destination}
+          onChange={(e) => setDestination(e.target.value)}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="tr-toman">مبلغ (تومان)</Label>
+        <MoneyInput id="tr-toman" value={toman} onChange={setToman} className={moneyInputClass} />
+      </div>
+      <Button type="submit" disabled={busy} className="self-start">
+        {busy ? "در حال ثبت…" : "ثبت انتقال"}
+      </Button>
+      <p className="text-xs text-muted">
+        برای خرید/فروش{" "}
+        <Link href="/dashboard/assets/gold" className="text-accent-dark underline">
+          طلا
+        </Link>{" "}
+        یا{" "}
+        <Link href="/dashboard/assets/usd" className="text-accent-dark underline">
+          دلار
+        </Link>{" "}
+        از صفحات اختصاصی آن‌ها استفاده کنید.
+      </p>
+    </form>
   );
 }

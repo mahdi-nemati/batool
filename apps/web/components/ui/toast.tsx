@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { AlertCircle, Check, Info, X } from "lucide-react";
+import { API_TOAST_EVENT, type ApiToastDetail } from "@/lib/api/client";
 import { cn } from "@/lib/cn";
 
 export type ToastVariant = "success" | "error" | "info";
@@ -17,7 +18,11 @@ export type ToastItem = {
 
 export type ToastInput = Omit<ToastItem, "id">;
 
-type Ctx = { toast: (t: ToastInput) => number; dismiss: (id: number) => void; dismissAll: () => void };
+type Ctx = {
+  toast: (t: ToastInput) => number;
+  dismiss: (id: number) => void;
+  dismissAll: () => void;
+};
 const ToastCtx = React.createContext<Ctx | null>(null);
 
 const FA_DIGITS = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
@@ -48,7 +53,11 @@ export interface ToastProviderProps {
 }
 
 /** Wrap your app once; then call `useToast().toast({...})` or the imperative `notify()` anywhere. */
-export function ToastProvider({ children, max = 3, position = "bottom-start" }: ToastProviderProps) {
+export function ToastProvider({
+  children,
+  max = 3,
+  position = "bottom-start",
+}: ToastProviderProps) {
   const [items, setItems] = React.useState<ToastItem[]>([]);
   const timers = React.useRef(new Map<number, number>());
 
@@ -69,20 +78,35 @@ export function ToastProvider({ children, max = 3, position = "bottom-start" }: 
     (t: ToastInput) => {
       const id = Date.now() + Math.random();
       setItems((list) => [...list, { id, ...t }].slice(-max));
-      timers.current.set(id, window.setTimeout(() => dismiss(id), t.duration ?? 4000));
+      timers.current.set(
+        id,
+        window.setTimeout(() => dismiss(id), t.duration ?? 4000),
+      );
       return id;
     },
     [dismiss, max],
   );
 
-  // The imperative `notify()` bridge — same event name the old Batool toaster used.
+  // Bridge between the API client and this provider: every failed request (and
+  // every successful mutation) arrives here as a `batool:toast` window event.
   React.useEffect(() => {
     const onNotify = (event: Event) => {
-      const detail = (event as CustomEvent<{ message: string; tone?: ToastVariant }>).detail;
-      push({ title: detail.message, variant: detail.tone ?? "success" });
+      const detail = (event as CustomEvent<ApiToastDetail>).detail;
+      const fields = detail.fields;
+      const fieldText =
+        fields !== undefined
+          ? Object.values(fields)
+              .filter((value) => typeof value === "string" && value.length > 0)
+              .join(" • ")
+          : "";
+      push({
+        title: detail.message,
+        ...(fieldText.length > 0 ? { description: fieldText } : {}),
+        variant: detail.tone ?? "success",
+      });
     };
-    window.addEventListener("batool:toast", onNotify);
-    return () => window.removeEventListener("batool:toast", onNotify);
+    window.addEventListener(API_TOAST_EVENT, onNotify);
+    return () => window.removeEventListener(API_TOAST_EVENT, onNotify);
   }, [push]);
 
   const posClass: Record<Position, string> = {
@@ -129,12 +153,14 @@ export function useToast(): Ctx {
 
 /**
  * Imperative toast, usable outside React. Dispatches a `batool:toast` window
- * event that the nearest <ToastProvider> picks up; a no-op when no provider
+ * event that the app-level <ToastProvider> picks up; a no-op when no provider
  * is mounted.
  */
 export function notify(message: string, tone: ToastVariant = "success"): void {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent("batool:toast", { detail: { message, tone } }));
+  window.dispatchEvent(
+    new CustomEvent<ApiToastDetail>(API_TOAST_EVENT, { detail: { message, tone } }),
+  );
 }
 
 /** اعلان. The card itself; rendered by the provider, exported for previews. */

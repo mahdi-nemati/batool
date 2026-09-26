@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import type {
   ApiResponse,
   AuthUser,
@@ -7,6 +7,7 @@ import type {
   CounterpartyDto,
 } from "@batool/types";
 import { CurrentUser } from "../common/auth/decorators";
+import { parsePage } from "../common/pagination/pagination";
 import { CounterpartiesService } from "./counterparties.service";
 import {
   ConnectUserDto,
@@ -35,8 +36,10 @@ export class CounterpartiesController {
   async detail(
     @CurrentUser() user: AuthUser,
     @Param("id") id: string,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
   ): Promise<ApiResponse<CounterpartyHistoryDto>> {
-    return { data: await this.service.detail(user.id, id) };
+    return { data: await this.service.detail(user.id, id, parsePage(page, pageSize)) };
   }
 
   @Patch(":id")

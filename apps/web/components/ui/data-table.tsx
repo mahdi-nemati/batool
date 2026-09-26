@@ -102,8 +102,23 @@ export function DataTable<T extends object>({
     }
   }
 
+  const sortableColumns = columns.filter((column) => column.sortable);
+
+  function renderCell(column: DataTableColumn<T>, row: T) {
+    return column.cell ? column.cell(row[column.key], row) : String(row[column.key] ?? "");
+  }
+
+  function sortIcon(active: boolean) {
+    if (!active) return <ArrowUpDown className="size-3" aria-hidden />;
+    return sort?.direction === "asc" ? (
+      <ArrowUp className="size-3" aria-hidden />
+    ) : (
+      <ArrowDown className="size-3" aria-hidden />
+    );
+  }
+
   return (
-    <div dir="rtl" className="flex w-full flex-col gap-3">
+    <div dir="rtl" className="flex w-full min-w-0 flex-col gap-3">
       {searchKeys.length > 0 ? (
         <Input
           type="search"
@@ -114,19 +129,95 @@ export function DataTable<T extends object>({
           className="max-w-sm"
         />
       ) : null}
-      <div className="w-full overflow-x-auto rounded-lg border border-border">
-        <table className="w-full min-w-[32rem] text-sm" aria-label={label}>
+      {/* Small screens: sorting moves to compact chips and every row becomes a
+          labelled card, so a wide table never forces sideways scrolling. */}
+      {sortableColumns.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1.5 md:hidden">
+          <span className="text-xs text-muted-foreground">مرتب‌سازی:</span>
+          {sortableColumns.map((column) => {
+            const active = sort?.key === column.key;
+            return (
+              <button
+                key={column.key}
+                type="button"
+                onClick={() => cycleSort(column)}
+                aria-pressed={active}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition-colors motion-reduce:transition-none",
+                  active
+                    ? "border-primary bg-accent-soft text-foreground"
+                    : "border-border text-muted-foreground hover:bg-accent-soft hover:text-foreground",
+                )}
+              >
+                {column.header}
+                {sortIcon(active)}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      <ul className="flex flex-col gap-2 md:hidden">
+        {loading
+          ? Array.from({ length: Math.min(pageSize, 5) }, (_, index) => (
+              <li key={index}>
+                <Skeleton className="h-16 w-full" />
+              </li>
+            ))
+          : visibleRows.map((row, index) => (
+              <li
+                key={rowKey?.(row, index) ?? index}
+                className="rounded-lg border border-border p-3"
+              >
+                <dl className="flex flex-col gap-1.5 text-sm">
+                  {columns.map((column) => (
+                    <div
+                      key={column.key}
+                      className="flex min-w-0 items-start justify-between gap-3"
+                    >
+                      <dt className="shrink-0 text-xs text-muted-foreground">{column.header}</dt>
+                      <dd
+                        className={cn(
+                          "min-w-0 break-words text-end",
+                          column.numeric && "tabular-nums",
+                        )}
+                      >
+                        {renderCell(column, row)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </li>
+            ))}
+        {!loading && visibleRows.length === 0 ? (
+          <li>
+            <EmptyState title={emptyTitle} description={emptyDescription} />
+          </li>
+        ) : null}
+      </ul>
+      {/* min-w-0 + max-w-full: inside a grid/flex parent the table must be
+          allowed to shrink instead of stretching the page. The horizontal
+          scroller is only a safety net for genuinely wide tables, and
+          whitespace/nowrap are limited to md+ so a narrow card never needs it. */}
+      <div className="hidden w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain rounded-lg border border-border md:block">
+        <table className="w-full text-sm" aria-label={label}>
           <thead className="bg-secondary/60 text-xs text-muted-foreground">
             <tr>
               {columns.map((column) => {
                 const active = sort?.key === column.key;
-                const ariaSort = active ? (sort.direction === "asc" ? "ascending" : "descending") : "none";
+                const ariaSort = active
+                  ? sort.direction === "asc"
+                    ? "ascending"
+                    : "descending"
+                  : "none";
                 return (
                   <th
                     key={column.key}
                     scope="col"
                     aria-sort={ariaSort}
-                    className={cn("whitespace-nowrap px-3 py-2 font-medium", column.numeric ? "text-end" : "text-start")}
+                    className={cn(
+                      "px-3 py-2 font-medium md:whitespace-nowrap",
+                      column.numeric ? "text-end" : "text-start",
+                    )}
                   >
                     {column.sortable ? (
                       <button
@@ -135,11 +226,7 @@ export function DataTable<T extends object>({
                         className="inline-flex items-center gap-1 rounded-md p-1 text-inherit transition-colors hover:bg-accent-soft hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
                       >
                         {column.header}
-                        {active ? (
-                          sort.direction === "asc" ? <ArrowUp className="size-3" aria-hidden /> : <ArrowDown className="size-3" aria-hidden />
-                        ) : (
-                          <ArrowUpDown className="size-3" aria-hidden />
-                        )}
+                        {sortIcon(active)}
                       </button>
                     ) : (
                       column.header
@@ -168,13 +255,19 @@ export function DataTable<T extends object>({
               </tr>
             ) : (
               visibleRows.map((row, index) => (
-                <tr key={rowKey?.(row, index) ?? index} className="border-t border-border transition-colors hover:bg-accent/40 motion-reduce:transition-none">
+                <tr
+                  key={rowKey?.(row, index) ?? index}
+                  className="border-t border-border transition-colors hover:bg-accent/40 motion-reduce:transition-none"
+                >
                   {columns.map((column) => (
                     <td
                       key={column.key}
-                      className={cn("px-3 py-2.5", column.numeric && "text-end tabular-nums")}
+                      className={cn(
+                        "px-3 py-2.5 align-middle break-words",
+                        column.numeric && "text-end tabular-nums",
+                      )}
                     >
-                      {column.cell ? column.cell(row[column.key], row) : String(row[column.key] ?? "")}
+                      {renderCell(column, row)}
                     </td>
                   ))}
                 </tr>

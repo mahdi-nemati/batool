@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { Prisma } from "@batool/database";
 import type { Installment, InstallmentPayment as InstallmentPaymentRow } from "@batool/database";
 import {
+  AssetKind,
   InstallmentStatus,
   type InstallmentDetailDto,
   type InstallmentDto,
@@ -171,8 +172,9 @@ export class InstallmentsService {
       }
 
       const asset = await this.registry.resolve(tx, userId, dto.assetKind, dto.assetId);
-      if (asset.currency !== "TOMAN") {
-        throw ApiError.validation("assetId", "منبع پرداخت باید حساب بانکی یا صندوق باشد");
+      // Defensive: the DTO already restricts this to BANK, never trust the client.
+      if (asset.kind !== AssetKind.BANK) {
+        throw ApiError.validation("assetKind", "پرداخت قسط فقط از حساب بانکی انجام می‌شود");
       }
       await this.registry.lock(tx, asset, userId);
       const balance = await this.registry.balanceOf(tx, asset);

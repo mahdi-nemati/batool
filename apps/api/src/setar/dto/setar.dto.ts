@@ -2,7 +2,9 @@ import { Type } from "class-transformer";
 import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
 import { AssetKind } from "@batool/types";
 
-const ASSET_KINDS: AssetKind[] = [AssetKind.BANK, AssetKind.FUND];
+// Business rule: tuition is paid from a Bank Account only. Funds are savings
+// targets and may never act as a payment source.
+const ASSET_KINDS: AssetKind[] = [AssetKind.BANK];
 
 export class CreateSetarDto {
   @Type(() => Number)
@@ -46,7 +48,7 @@ export class CreateSetarSessionDto {
  * resolves the current profile tuition and uses exactly that amount.
  */
 export class PaySetarTuitionDto {
-  @IsIn(ASSET_KINDS, { message: "پرداخت فقط با حساب بانکی یا صندوق انجام می‌شود" })
+  @IsIn(ASSET_KINDS, { message: "پرداخت شهریه فقط از حساب بانکی انجام می‌شود" })
   assetKind!: AssetKind;
 
   @IsString()

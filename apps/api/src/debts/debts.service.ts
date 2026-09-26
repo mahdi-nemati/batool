@@ -6,6 +6,7 @@ import {
   DebtEntryKind,
   DebtViewDirection,
   type CounterpartyDto,
+  type CounterpartyHistoryDto,
   type DebtEventDto,
   type DebtSummaryDto,
   type DebtSummaryEntryDto,
@@ -14,6 +15,7 @@ import {
 import { PrismaService } from "../database/prisma.service";
 import { ApiError } from "../common/errors/api-error";
 import { parseToman } from "../common/validation/money";
+import { paginate, type PageRequest } from "../common/pagination/pagination";
 import { AssetRegistryService } from "../assets/asset-registry.service";
 import type { CreateDebtEventDto, SettleDebtDto } from "./dto/debt.dto";
 
@@ -255,11 +257,15 @@ export class DebtsService {
   // ---- settlement ---------------------------------------------------------
 
   /**
-   * Dedicated settlement action. Direction is DERIVED from the current net:
-   *   net > 0 (they owe me)  → they pay me  → asset credited, outstanding reduced.
-   *   net < 0 (I owe them)   → I pay them   → asset debited (balance-guarded), outstanding reduced.
-   *   net == 0               → nothing to settle.
-   * The DebtEvent (SETTLEMENT) and its single AssetMovement are written atomically.
+   * Debt payment ("پرداخت بدهی") — the only settlement action.
+   *
+   * There is no intent/direction parameter: the derived net authorises it. A
+   * payment requires net < 0, i.e. the current user owes this counterparty. If
+   * the counterparty owes the user instead (net > 0) the call is rejected, so a
+   * creditor can never "pay" a debt that is not theirs, and there is no receive
+   * path at all. The amount must stay within the outstanding, the source is a
+   * Bank Account, and the DebtEvent plus its single AssetMovement are written
+   * atomically.
    */
   async settle(userId: string, dto: SettleDebtDto): Promise<DebtEventDto> {
     const amount = parseToman(dto.amountToman);
@@ -275,25 +281,30 @@ export class DebtsService {
         throw ApiError.nothingToSettle();
       }
 
-      const receive = net > 0n; // they owe me → I receive
-      const outstanding = receive ? net : -net;
+      // Only the debtor may pay: a positive net means this counterparty owes the
+      // user, which is not a payable debt.
+      if (net > 0n) {
+        throw ApiError.notDebtorOfCounterparty();
+      }
+
+      const outstanding = -net;
       if (amount > outstanding) {
         throw ApiError.settlementExceedsOutstanding(Number(outstanding));
       }
 
       const asset = await this.registry.resolve(tx, userId, dto.assetKind, dto.assetId);
-      if (asset.currency !== "TOMAN") {
-        throw ApiError.validation("assetId", "منبع تسویه باید حساب بانکی یا صندوق باشد");
+      // Defensive: the DTO already restricts this to BANK, never trust the client.
+      if (asset.kind !== AssetKind.BANK) {
+        throw ApiError.validation("assetKind", "تسویه فقط از حساب بانکی انجام می‌شود");
       }
       await this.registry.lock(tx, asset, userId);
-      if (!receive) {
-        const balance = await this.registry.balanceOf(tx, asset);
-        if ((balance as bigint) - amount < 0n) {
-          throw ApiError.insufficientBalance();
-        }
+      const balance = await this.registry.balanceOf(tx, asset);
+      if ((balance as bigint) - amount < 0n) {
+        throw ApiError.insufficientBalance();
       }
 
-      const direction = receive ? DebtDirection.OWES_ME : DebtDirection.I_OWE;
+      // A payment always reduces what the current user owes.
+      const direction = DebtDirection.I_OWE;
       const event = await tx.debtEvent.create({
         data: {
           ownerUserId: userId,
@@ -316,7 +327,7 @@ export class DebtsService {
           assetId: asset.id,
           reason: "SETTLEMENT",
           debtEventId: event.id,
-          amountToman: receive ? amount : -amount,
+          amountToman: -amount,
           occurredAt,
         },
       });
@@ -329,26 +340,37 @@ export class DebtsService {
 
   // ---- reads --------------------------------------------------------------
 
+  /**
+   * Counterparty detail + a page of its history. The net is always derived from
+   * the FULL event set (not just the returned page) so the outstanding stays
+   * correct on any page, while only `pageSize` rows are ever transferred.
+   */
   async history(
     userId: string,
     counterpartyId: string,
-  ): Promise<{ counterparty: CounterpartyDto; events: DebtEventDto[] }> {
+    page: PageRequest,
+  ): Promise<CounterpartyHistoryDto> {
     const cp = await this.prisma.counterparty.findFirst({
       where: { id: counterpartyId, ownerUserId: userId },
     });
     if (cp === null) {
       throw ApiError.notFound();
     }
-    const rows = await this.prisma.debtEvent.findMany({
-      where: { counterpartyId },
-      orderBy: { occurredAt: "asc" },
-    });
-    const net = rows.reduce((acc, e) => acc + signedDelta(e.kind, e.direction, e.amountToman), 0n);
+    const net = await this.netFor(this.prisma, counterpartyId);
+    const [rows, total] = await Promise.all([
+      this.prisma.debtEvent.findMany({
+        where: { counterpartyId },
+        orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
+        skip: page.skip,
+        take: page.take,
+      }),
+      this.prisma.debtEvent.count({ where: { counterpartyId } }),
+    ]);
     const [counterparty, events] = await Promise.all([
       this.toCounterpartyDto(this.prisma, cp, net),
       Promise.all(rows.map((e) => this.toEventDto(userId, e))),
     ]);
-    return { counterparty, events };
+    return { counterparty, events: paginate(events, total, page) };
   }
 
   async summary(userId: string): Promise<DebtSummaryDto> {

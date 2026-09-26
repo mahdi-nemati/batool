@@ -42,7 +42,10 @@ export default function StatisticsPage() {
         {data !== null ? (
           <Select
             className="w-44"
-            options={data.monthOptions.map((option) => ({ value: option.key, label: option.label }))}
+            options={data.monthOptions.map((option) => ({
+              value: option.key,
+              label: option.label,
+            }))}
             value={data.month.key}
             onChange={(e) => getDashboardStatistics(e.target.value).then(setData)}
           />
@@ -161,15 +164,21 @@ export default function StatisticsPage() {
               <CardContent className="flex flex-col gap-1.5 text-sm">
                 <p className="flex justify-between">
                   <span className="text-muted">طلب:</span>
-                  <b className="tabular-nums text-accent-dark">{formatTomanUnit(data.debtSummary.totalReceivableToman)}</b>
+                  <b className="tabular-nums text-accent-dark">
+                    {formatTomanUnit(data.debtSummary.totalReceivableToman)}
+                  </b>
                 </p>
                 <p className="flex justify-between">
                   <span className="text-muted">بدهی:</span>
-                  <b className="tabular-nums text-danger">{formatTomanUnit(data.debtSummary.totalPayableToman)}</b>
+                  <b className="tabular-nums text-danger">
+                    {formatTomanUnit(data.debtSummary.totalPayableToman)}
+                  </b>
                 </p>
                 <p className="flex justify-between">
                   <span className="text-muted">طرف‌حساب‌های باز:</span>
-                  <b className="tabular-nums">{decimal.format(data.debtSummary.counterparties.length)}</b>
+                  <b className="tabular-nums">
+                    {decimal.format(data.debtSummary.counterparties.length)}
+                  </b>
                 </p>
               </CardContent>
             </Card>
@@ -199,7 +208,7 @@ export default function StatisticsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">دارایی و سه‌تار</CardTitle>
+                <CardTitle className="text-base">دارایی</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-1.5 text-sm">
                 <p className="flex justify-between">
@@ -213,12 +222,6 @@ export default function StatisticsPage() {
                 <p className="flex justify-between">
                   <span className="text-muted">دلار:</span>
                   <b className="tabular-nums">{formatQuantity(data.assets.usd)} دلار</b>
-                </p>
-                <p className="flex justify-between">
-                  <span className="text-muted">سه‌تار:</span>
-                  <b className="tabular-nums">
-                    {decimal.format(data.setar.sessionsInCurrentCycle)} از ۴ جلسه
-                  </b>
                 </p>
               </CardContent>
             </Card>
@@ -251,7 +254,11 @@ function Metric({
         <Icon
           className={cn(
             "size-4",
-            tone === "positive" ? "text-accent-dark" : tone === "negative" ? "text-danger" : "text-muted",
+            tone === "positive"
+              ? "text-accent-dark"
+              : tone === "negative"
+                ? "text-danger"
+                : "text-muted",
           )}
           aria-hidden
         />
@@ -261,13 +268,7 @@ function Metric({
   );
 }
 
-function BreakdownPanel({
-  title,
-  rows,
-}: {
-  title: string;
-  rows: DashboardCategoryDto[];
-}) {
+function BreakdownPanel({ title, rows }: { title: string; rows: DashboardCategoryDto[] }) {
   return (
     <Card>
       <CardHeader>

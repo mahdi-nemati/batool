@@ -93,12 +93,24 @@ export function JalaliDateInput({
           className="absolute start-0 z-30 mt-2 w-72 rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-elevated transition-opacity duration-200 motion-reduce:transition-none"
         >
           <div className="mb-2 flex items-center justify-between">
-            <button type="button" onClick={() => shift(1)} aria-label="ماه بعد" className="rounded-md p-1 text-muted-foreground hover:bg-accent-soft hover:text-foreground">
-              <ChevronLeft className="size-4" aria-hidden />
+            {/* RTL: the first child renders on the right, so "previous" comes
+                first and points right; "next" lands on the left and points left. */}
+            <button
+              type="button"
+              onClick={() => shift(-1)}
+              aria-label="ماه قبل"
+              className="rounded-md p-1 text-muted-foreground hover:bg-accent-soft hover:text-foreground"
+            >
+              <ChevronRight className="size-4" aria-hidden />
             </button>
             <b className="text-title">{jalaliMonthLabel(view.year, view.month)}</b>
-            <button type="button" onClick={() => shift(-1)} aria-label="ماه قبل" className="rounded-md p-1 text-muted-foreground hover:bg-accent-soft hover:text-foreground">
-              <ChevronRight className="size-4" aria-hidden />
+            <button
+              type="button"
+              onClick={() => shift(1)}
+              aria-label="ماه بعد"
+              className="rounded-md p-1 text-muted-foreground hover:bg-accent-soft hover:text-foreground"
+            >
+              <ChevronLeft className="size-4" aria-hidden />
             </button>
           </div>
           <div className="grid grid-cols-7 gap-1 text-center text-label text-muted-foreground">

@@ -5,8 +5,10 @@ import {
   type ApiResponse,
   type AuthUser,
   type FinancialTransactionDto,
+  type PaginatedResponse,
 } from "@batool/types";
 import { CurrentUser } from "../common/auth/decorators";
+import { parsePage } from "../common/pagination/pagination";
 import { TransactionsService, type ListFilters } from "./transactions.service";
 import { CreateTransactionDto } from "./dto/transaction.dto";
 
@@ -50,7 +52,9 @@ export class TransactionsController {
     @Query("assetId") assetId?: string,
     @Query("from") from?: string,
     @Query("to") to?: string,
-  ): Promise<ApiResponse<FinancialTransactionDto[]>> {
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ): Promise<ApiResponse<PaginatedResponse<FinancialTransactionDto>>> {
     const filters: ListFilters = {
       ...(type !== undefined ? { type: parseType(type) } : {}),
       ...(categoryId !== undefined ? { categoryId } : {}),
@@ -59,7 +63,7 @@ export class TransactionsController {
       ...(from !== undefined ? { from } : {}),
       ...(to !== undefined ? { to } : {}),
     };
-    return { data: await this.service.list(user.id, filters) };
+    return { data: await this.service.list(user.id, filters, parsePage(page, pageSize)) };
   }
 
   @Get(":id")

@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
 import type { ApiResponse, AuthUser, FundDto } from "@batool/types";
 import { CurrentUser } from "../common/auth/decorators";
 import { FundsService } from "./funds.service";
-import { CreateFundDto } from "./dto/fund.dto";
+import { CreateFundDto, UpdateFundDto } from "./dto/fund.dto";
 
 @Controller("funds")
 export class FundsController {
@@ -24,5 +24,21 @@ export class FundsController {
   @Get(":id")
   async get(@CurrentUser() user: AuthUser, @Param("id") id: string): Promise<ApiResponse<FundDto>> {
     return { data: await this.service.get(user.id, id) };
+  }
+
+  @Patch(":id")
+  async update(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @Body() dto: UpdateFundDto,
+  ): Promise<ApiResponse<FundDto>> {
+    return { data: await this.service.update(user.id, id, dto) };
+  }
+
+  /** Returns the remaining balance to the first bank account, then deletes it. */
+  @Delete(":id")
+  async remove(@CurrentUser() user: AuthUser, @Param("id") id: string): Promise<ApiResponse<null>> {
+    await this.service.remove(user.id, id);
+    return { data: null };
   }
 }

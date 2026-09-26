@@ -33,6 +33,21 @@ export class ApiError extends Error {
     return new ApiError(ErrorCode.CONFLICT, 409, message);
   }
 
+  /**
+   * Conflict raised by a database unique index (e.g. two registrations that
+   * passed the application pre-check at the same time). The index is the real
+   * guarantee; this turns the loser of that race into a 409 instead of a 500.
+   */
+  static uniqueConflict(fields: Record<string, string>): ApiError {
+    const messages = [...new Set(Object.values(fields))];
+    return new ApiError(
+      ErrorCode.CONFLICT,
+      409,
+      messages[0] ?? "این مقدار قبلاً ثبت شده است",
+      Object.keys(fields).length > 0 ? fields : undefined,
+    );
+  }
+
   static insufficientBalance(): ApiError {
     return new ApiError(ErrorCode.INSUFFICIENT_BALANCE, 422, "موجودی برای این عملیات کافی نیست");
   }
@@ -58,7 +73,19 @@ export class ApiError extends Error {
   }
 
   static nothingToSettle(): ApiError {
-    return new ApiError(ErrorCode.NOTHING_TO_SETTLE, 409, "بدهی standing برای تسویه وجود ندارد");
+    return new ApiError(ErrorCode.NOTHING_TO_SETTLE, 409, "بدهی برای تسویه وجود ندارد");
+  }
+
+  /** Debt payment is debtor-only: the caller is the creditor, so there is nothing to pay. */
+  static notDebtorOfCounterparty(): ApiError {
+    return new ApiError(
+      ErrorCode.VALIDATION_ERROR,
+      422,
+      "پرداخت بدهی فقط برای موردی مجاز است که شما به این طرف حساب بدهکار باشید",
+      {
+        counterpartyId: "شما به این طرف حساب بدهکار نیستید، پس بدهی قابل پرداختی وجود ندارد",
+      },
+    );
   }
 
   static counterpartyArchived(): ApiError {

@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { Banknote, Coins, History } from "lucide-react";
-import type { TransferDto } from "@batool/types";
-import { WalletTradeForm } from "@/components/finance/WalletTradeForm";
-import { formatQuantity, formatTomanUnit } from "@/lib/formatting/persian";
+import type { PaginatedResponse, TransferDto } from "@batool/types";
+import { WalletHistory } from "@/components/finance/WalletHistory";
+import { WalletTradeActions } from "@/components/finance/WalletTradeActions";
+import { formatQuantity } from "@/lib/formatting/persian";
 import { formatJalaliDate } from "@/lib/formatting/jalali";
 import { AssetKind } from "@batool/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
-import { cn } from "@/lib/cn";
 
 type WalletKind = "GOLD" | "USD";
 
@@ -18,16 +17,7 @@ interface Props {
   balance: string;
   createdAt: string;
   accounts: { id: string; name: string }[];
-  transfers: TransferDto[];
-}
-
-function isBuy(t: TransferDto, asset: WalletKind): boolean {
-  return t.destination.kind === asset;
-}
-
-function quantityOf(t: TransferDto, asset: WalletKind): string {
-  const raw = asset === "GOLD" ? t.amountGram : t.amountUsd;
-  return raw ?? "0";
+  transfers: PaginatedResponse<TransferDto>;
 }
 
 export function WalletPage({ asset, title, unit, balance, createdAt, accounts, transfers }: Props) {
@@ -63,10 +53,8 @@ export function WalletPage({ asset, title, unit, balance, createdAt, accounts, t
         <p className="mt-1 text-xs text-muted">تاریخ ایجاد: {formatJalaliDate(createdAt)}</p>
       </Card>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">خرید و فروش</h2>
-        <WalletTradeForm asset={asset} accounts={accounts} />
-      </section>
+      {/* Actions: the trade form lives in a modal, like the Assets and Setar pages. */}
+      <WalletTradeActions asset={asset} title={title} accounts={accounts} />
 
       <Card>
         <CardHeader>
@@ -77,41 +65,7 @@ export function WalletPage({ asset, title, unit, balance, createdAt, accounts, t
           <CardDescription>خرید و فروش‌های ثبت‌شده</CardDescription>
         </CardHeader>
         <CardContent>
-          {transfers.length === 0 ? (
-            <EmptyState
-              icon={History}
-              title="هنوز خرید یا فروشی ثبت نشده است"
-              description={`با ثبت اولین معامله ${title}، تاریخچه کامل اینجا نمایش داده می‌شود.`}
-            />
-          ) : (
-            <ul className="flex flex-col divide-y divide-border">
-              {transfers.map((t) => {
-                const buy = isBuy(t, asset);
-                return (
-                  <li key={t.id} className="flex flex-col gap-1 py-3 text-sm">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-foreground">{t.description}</span>
-                      <span
-                        className={cn(
-                          "shrink-0 font-bold tabular-nums",
-                          buy ? "text-accent-dark" : "text-danger",
-                        )}
-                      >
-                        {buy ? "+" : "−"}
-                        {formatQuantity(quantityOf(t, asset))} {unit}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-4 text-muted-foreground">
-                      <span>
-                        {buy ? "پرداخت" : "دریافت"}: {formatTomanUnit(t.amountToman ?? 0)}
-                      </span>
-                      <span>{formatJalaliDate(t.occurredAt)}</span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          <WalletHistory asset={asset} unit={unit} title={title} initial={transfers} />
         </CardContent>
       </Card>
     </div>

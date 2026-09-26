@@ -69,7 +69,8 @@ export function amountInPersianWords(value: string): string {
   let group = 0;
   while (remaining > 0n) {
     const chunk = Number(remaining % 1000n);
-    if (chunk > 0) parts.unshift(`${threeDigitWords(chunk)}${scales[group] ? ` ${scales[group]}` : ""}`);
+    if (chunk > 0)
+      parts.unshift(`${threeDigitWords(chunk)}${scales[group] ? ` ${scales[group]}` : ""}`);
     remaining /= 1000n;
     group += 1;
   }
@@ -151,7 +152,10 @@ export function AmountInput({
           aria-invalid={message ? true : undefined}
           aria-describedby={messageId}
           onChange={(event) => {
-            const beforeCaret = event.target.value.slice(0, event.target.selectionStart ?? event.target.value.length);
+            const beforeCaret = event.target.value.slice(
+              0,
+              event.target.selectionStart ?? event.target.value.length,
+            );
             caretDigits.current = normalizeAmount(beforeCaret).length;
             onChange(normalizeAmount(event.target.value));
           }}
@@ -162,21 +166,35 @@ export function AmountInput({
         </span>
       </div>
       {quickAmounts.length > 0 ? (
+        // Always visible — typing a custom amount never hides the presets.
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs text-muted-foreground">مقدار سریع:</span>
-          {quickAmounts.map((amount) => (
-            <button
-              key={amount}
-              type="button"
-              onClick={() => onChange(String(amount))}
-              className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent-soft hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
-            >
-              {quickAmountLabel(amount)}
-            </button>
-          ))}
+          {quickAmounts.map((amount) => {
+            const active = numericValue === amount;
+            return (
+              <button
+                key={amount}
+                type="button"
+                aria-pressed={active}
+                title={active ? "مقدار فعلی" : `انتخاب ${groupedNumber.format(amount)} تومان`}
+                onClick={() => onChange(String(amount))}
+                className={
+                  active
+                    ? "rounded-md border border-primary bg-primary/10 px-2 py-1 text-xs font-bold text-primary"
+                    : "rounded-md border border-border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent-soft hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+                }
+              >
+                {quickAmountLabel(amount)}
+              </button>
+            );
+          })}
         </div>
       ) : null}
-      <p id={messageId} className={message ? "text-xs text-error" : "text-xs text-muted-foreground"} aria-live="polite">
+      <p
+        id={messageId}
+        className={message ? "text-xs text-error" : "text-xs text-muted-foreground"}
+        aria-live="polite"
+      >
         {message ?? (normalized.length > 0 ? amountInPersianWords(normalized) : "")}
       </p>
     </div>

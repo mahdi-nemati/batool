@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Link2, Plus, Users, UserPlus } from "lucide-react";
+import { Link2, Plus, Scale, UserRound, Users, UserPlus } from "lucide-react";
 import type { CounterpartyDto, ConnectionDto, DebtSummaryDto } from "@batool/types";
 import { ApiClientError } from "@/lib/api/client";
 import {
@@ -13,11 +13,14 @@ import {
   listCounterparties,
   updateCounterparty,
 } from "@/lib/api/debts";
+import { formatJalaliDate } from "@/lib/formatting/jalali";
 import { formatTomanUnit } from "@/lib/formatting/persian";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
+import { HoverCard } from "@/components/ui/hover-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,10 +32,10 @@ export function CounterpartiesClient() {
   const [counterparties, setCps] = useState<CounterpartyDto[]>([]);
   const [connections, setConns] = useState<ConnectionDto[]>([]);
   const [summary, setSummary] = useState<DebtSummaryDto | null>(null);
-  const [name, setName] = useState("");
-  const [username, setUsername] = useState("");
+  const [form, setForm] = useState<"external" | "connect" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const closeForm = () => setForm(null);
 
   const reload = useCallback(async () => {
     const [cps, conns, sum] = await Promise.all([
@@ -50,30 +53,6 @@ export function CounterpartiesClient() {
       .catch((e) => setError(e instanceof ApiClientError ? e.message : "خطا در بارگذاری"))
       .finally(() => setLoading(false));
   }, [reload]);
-
-  async function onExternal(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    try {
-      await createExternalCounterparty(name);
-      setName("");
-      await reload();
-    } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "خطا");
-    }
-  }
-
-  async function onConnect(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    try {
-      await connectUser(username);
-      setUsername("");
-      await reload();
-    } catch (err) {
-      setError(err instanceof ApiClientError ? err.message : "خطا");
-    }
-  }
 
   async function onToggleArchive(cp: CounterpartyDto) {
     setError(null);
@@ -100,7 +79,11 @@ export function CounterpartiesClient() {
             value={formatTomanUnit(summary.totalReceivableToman)}
             tone="positive"
           />
-          <Stat title="بدهی من" value={formatTomanUnit(summary.totalPayableToman)} tone="negative" />
+          <Stat
+            title="بدهی من"
+            value={formatTomanUnit(summary.totalPayableToman)}
+            tone="negative"
+          />
           <Stat
             title="خالص"
             value={
@@ -118,75 +101,37 @@ export function CounterpartiesClient() {
         </p>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UserPlus className="size-4 text-primary" aria-hidden />
-              طرف حساب جدید (خارجی)
-            </CardTitle>
-            <CardDescription>یک شخص یا کسب‌وکار بدون حساب بتول.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={onExternal} className="flex flex-col gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="cp-name">نام</Label>
-                <Input
-                  id="cp-name"
-                  placeholder="مثلاً آقای رضایی"
-                  maxLength={60}
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-              </div>
-              <Button type="submit" className="self-start gap-1.5">
-                <Plus className="size-4" aria-hidden />
-                افزودن
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+      {/* Actions: every creation form lives in a modal, like the Assets and Setar pages. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button onClick={() => setForm("external")}>
+          <UserPlus aria-hidden /> طرف حساب جدید
+        </Button>
+        <Button variant="outline" onClick={() => setForm("connect")}>
+          <Link2 aria-hidden /> اتصال به کاربر بتول
+        </Button>
+      </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Link2 className="size-4 text-primary" aria-hidden />
-              اتصال به کاربر بتول
-            </CardTitle>
-            <CardDescription>با نام کاربری در همین سامانه ارتباط برقرار کنید.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={onConnect} className="flex flex-col gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="cp-username">نام کاربری</Label>
-                <Input
-                  id="cp-username"
-                  dir="ltr"
-                  placeholder="username"
-                  maxLength={20}
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                />
-              </div>
-              <Button type="submit" className="self-start">
-                ارتباط
-              </Button>
-              {connections.length > 0 ? (
-                <p className="flex flex-wrap items-center gap-1 text-sm text-muted">
-                  متصل:
-                  {connections.map((c) => (
-                    <Badge key={c.id} variant="secondary">
-                      {c.username}
-                    </Badge>
-                  ))}
-                </p>
-              ) : null}
-            </form>
-          </CardContent>
-        </Card>
-      </section>
+      <Dialog
+        open={form === "external"}
+        onOpenChange={(value) => {
+          if (!value) closeForm();
+        }}
+        title="طرف حساب جدید"
+        description="یک شخص یا کسب‌وکار بدون حساب بتول."
+      >
+        <NewCounterpartyForm onDone={reload} onSaved={closeForm} />
+      </Dialog>
+
+      <Dialog
+        open={form === "connect"}
+        onOpenChange={(value) => {
+          if (!value) closeForm();
+        }}
+        title="اتصال به کاربر بتول"
+        description="با نام کاربری در همین سامانه ارتباط برقرار کنید."
+      >
+        <ConnectUserForm onDone={reload} onSaved={closeForm} connections={connections} />
+      </Dialog>
 
       <Card>
         <CardHeader className="flex-row items-center justify-between">
@@ -195,7 +140,10 @@ export function CounterpartiesClient() {
               <Users className="size-4 text-primary" aria-hidden />
               فهرست طرف‌حساب‌ها
             </CardTitle>
-            <CardDescription>برای دیدن جزئیات روی هر شخص ضربه بزنید.</CardDescription>
+            <CardDescription>
+              برای دیدن جزئیات روی هر شخص ضربه بزنید. برای اعضای بتول، با نگه‌داشتن اشاره‌گر روی
+              نام، خلاصه‌ی بدهی نمایش داده می‌شود.
+            </CardDescription>
           </div>
           <Badge variant="secondary">{wholeFormat.format(counterparties.length)} مورد</Badge>
         </CardHeader>
@@ -215,14 +163,12 @@ export function CounterpartiesClient() {
           ) : (
             <ul className="flex flex-col divide-y divide-line">
               {counterparties.map((cp) => (
-                <li key={cp.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
+                <li
+                  key={cp.id}
+                  className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"
+                >
                   <div className="min-w-0">
-                    <Link
-                      href={`/dashboard/counterparties/${cp.id}`}
-                      className="block truncate font-bold text-primary hover:underline"
-                    >
-                      {cp.name}
-                    </Link>
+                    <CounterpartyName cp={cp} />
                     <span className="block truncate text-xs text-muted">
                       {cp.kind === "USER" ? `کاربر: @${cp.linkedUsername}` : "خارجی"}
                       {cp.archived ? " · بایگانی‌شده" : ""}
@@ -245,6 +191,210 @@ export function CounterpartiesClient() {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function NewCounterpartyForm({
+  onDone,
+  onSaved,
+}: {
+  onDone: () => Promise<void>;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      await createExternalCounterparty(name);
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "خطا");
+      return;
+    } finally {
+      setBusy(false);
+    }
+    setName("");
+    onSaved();
+    await onDone().catch(() => undefined);
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-3">
+      {error !== null ? (
+        <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
+      <div className="space-y-1.5">
+        <Label htmlFor="cp-name">نام</Label>
+        <Input
+          id="cp-name"
+          data-autofocus
+          placeholder="مثلاً آقای رضایی"
+          maxLength={60}
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" onClick={onSaved}>
+          انصراف
+        </Button>
+        <Button type="submit" disabled={busy}>
+          <Plus aria-hidden />
+          {busy ? "در حال افزودن…" : "افزودن"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function ConnectUserForm({
+  onDone,
+  onSaved,
+  connections,
+}: {
+  onDone: () => Promise<void>;
+  onSaved: () => void;
+  connections: ConnectionDto[];
+}) {
+  const [username, setUsername] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      await connectUser(username);
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err.message : "خطا");
+      return;
+    } finally {
+      setBusy(false);
+    }
+    setUsername("");
+    onSaved();
+    await onDone().catch(() => undefined);
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-3">
+      {error !== null ? (
+        <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
+      <div className="space-y-1.5">
+        <Label htmlFor="cp-username">نام کاربری</Label>
+        <Input
+          id="cp-username"
+          data-autofocus
+          dir="ltr"
+          placeholder="username"
+          maxLength={20}
+          required
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" onClick={onSaved}>
+          انصراف
+        </Button>
+        <Button type="submit" disabled={busy}>
+          <Link2 aria-hidden />
+          {busy ? "در حال اتصال…" : "ارتباط"}
+        </Button>
+      </div>
+      {connections.length > 0 ? (
+        <p className="flex flex-wrap items-center gap-1 border-t border-border pt-3 text-sm text-muted">
+          متصل:
+          {connections.map((c) => (
+            <Badge key={c.id} variant="secondary">
+              {c.username}
+            </Badge>
+          ))}
+        </p>
+      ) : null}
+    </form>
+  );
+}
+
+function CounterpartyName({ cp }: { cp: CounterpartyDto }) {
+  const link = (
+    <Link
+      href={`/dashboard/counterparties/${cp.id}`}
+      className="block truncate font-bold text-primary hover:underline"
+    >
+      {cp.name}
+    </Link>
+  );
+
+  // اعضای بتول get a read-only preview on hover/focus; external parties have nothing to preview.
+  if (cp.kind !== "USER") return link;
+
+  return (
+    <HoverCard label={`خلاصه‌ی ${cp.name}`} content={<MemberPreview cp={cp} />}>
+      {link}
+    </HoverCard>
+  );
+}
+
+function MemberPreview({ cp }: { cp: CounterpartyDto }) {
+  const settled = cp.direction === "SETTLED";
+  const owesMe = cp.direction === "OWES_ME";
+  const status = settled
+    ? "تسویه‌شده"
+    : owesMe
+      ? `${cp.name} به شما بدهکار است`
+      : `شما به ${cp.name} بدهکارید`;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate font-bold text-foreground">{cp.name}</p>
+          <p className="mt-0.5 truncate text-xs text-muted" dir="ltr">
+            @{cp.linkedUsername ?? "—"}
+          </p>
+        </div>
+        <Badge variant="brand" className="flex shrink-0 items-center gap-1">
+          <UserRound className="size-3" aria-hidden />
+          عضو بتول
+        </Badge>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
+        <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted">
+          <Scale className="size-3.5 shrink-0" aria-hidden />
+          <span className="truncate">{status}</span>
+        </span>
+        {!settled ? (
+          <span
+            className={cn(
+              "shrink-0 text-xs font-semibold tabular-nums",
+              owesMe ? "text-accent-dark" : "text-danger",
+            )}
+          >
+            {formatTomanUnit(cp.outstandingToman)}
+          </span>
+        ) : null}
+      </div>
+
+      <p className="flex items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted">
+        <span>ارتباط از {formatJalaliDate(cp.createdAt)}</span>
+        <span className="truncate">برای جزئیات روی نام بزنید</span>
+      </p>
+
+      {cp.archived ? <p className="text-xs text-muted">این طرف‌حساب بایگانی شده است.</p> : null}
     </div>
   );
 }
@@ -276,7 +426,11 @@ function Stat({
       <p
         className={cn(
           "mt-1 text-lg font-bold",
-          tone === "positive" ? "text-accent-dark" : tone === "negative" ? "text-danger" : "text-ink",
+          tone === "positive"
+            ? "text-accent-dark"
+            : tone === "negative"
+              ? "text-danger"
+              : "text-ink",
         )}
       >
         {value}

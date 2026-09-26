@@ -8,7 +8,7 @@ import type {
   DebtEventDto,
   DebtSummaryDto,
 } from "@batool/types";
-import { request } from "./client";
+import { queryString, request } from "./client";
 
 const unwrap = <T>(p: Promise<ApiResponse<T>>) => p.then((r) => r.data);
 
@@ -22,7 +22,13 @@ export interface CreateDebtEventInput {
 
 export interface SettleInput {
   counterpartyId: string;
+  /**
+   * Debt payment only ("پرداخت بدهی"). There is no direction parameter: the
+   * server derives it from the outstanding balance and rejects the call unless
+   * the current user is the debtor.
+   */
   amountToman: number | string;
+  /** Settlements are always paid from a Bank Account. */
   assetKind: AssetKind;
   assetId: string;
   description?: string;
@@ -48,8 +54,14 @@ export const updateCounterparty = (id: string, body: { name?: string; archived?:
     }),
   );
 
-export const getCounterparty = (id: string) =>
-  unwrap(request<ApiResponse<CounterpartyHistoryDto>>(`/counterparties/${id}`));
+export const getCounterparty = (id: string, page = 1, pageSize?: number) =>
+  unwrap(
+    request<ApiResponse<CounterpartyHistoryDto>>(
+      `/counterparties/${id}${queryString(
+        Object.entries({ page, pageSize }) as [string, string | number | undefined][],
+      )}`,
+    ),
+  );
 
 export const connectUser = (username: string) =>
   unwrap(

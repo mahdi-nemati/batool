@@ -1,13 +1,17 @@
 import type {
   ApiResponse,
   AssetKind,
+  PaginatedResponse,
   SetarSessionDto,
   SetarStatusDto,
   SetarTuitionPaymentDto,
 } from "@batool/types";
-import { request } from "./client";
+import { queryString, request } from "./client";
 
 const unwrap = <T>(p: Promise<ApiResponse<T>>) => p.then((r) => r.data);
+
+const pageQuery = (page: number, pageSize: number | undefined) =>
+  queryString(Object.entries({ page, pageSize }) as [string, number | undefined][]);
 
 export const getSetarStatus = () => unwrap(request<ApiResponse<SetarStatusDto>>("/setar"));
 
@@ -30,8 +34,12 @@ export const updateSetarProfile = (
     }),
   );
 
-export const listSetarSessions = () =>
-  unwrap(request<ApiResponse<SetarSessionDto[]>>("/setar/sessions"));
+export const listSetarSessions = (page = 1, pageSize?: number) =>
+  unwrap(
+    request<ApiResponse<PaginatedResponse<SetarSessionDto>>>(
+      `/setar/sessions${pageQuery(page, pageSize)}`,
+    ),
+  );
 
 export const createSetarSession = (body: { occurredAt?: number; description?: string }) =>
   unwrap(
@@ -41,9 +49,14 @@ export const createSetarSession = (body: { occurredAt?: number; description?: st
     }),
   );
 
-export const listSetarPayments = () =>
-  unwrap(request<ApiResponse<SetarTuitionPaymentDto[]>>("/setar/payments"));
+export const listSetarPayments = (page = 1, pageSize?: number) =>
+  unwrap(
+    request<ApiResponse<PaginatedResponse<SetarTuitionPaymentDto>>>(
+      `/setar/payments${pageQuery(page, pageSize)}`,
+    ),
+  );
 
+/** Tuition is always paid from a Bank Account. */
 export const paySetarTuition = (body: {
   assetKind: AssetKind;
   assetId: string;

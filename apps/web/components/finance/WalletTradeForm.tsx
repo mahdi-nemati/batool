@@ -25,6 +25,8 @@ interface Endpoint {
 interface Props {
   asset: WalletKind;
   accounts: Endpoint[];
+  /** Called after a successful trade; the parent closes the modal. */
+  onSaved: () => void;
 }
 
 type Side = "BUY" | "SELL";
@@ -46,7 +48,7 @@ function meta(asset: WalletKind): Meta {
  * the historical price paid/received and lives only on the transfer record; it is
  * never used to value the wallet. The wallet always trades against a bank account.
  */
-export function WalletTradeForm({ asset, accounts }: Props) {
+export function WalletTradeForm({ asset, accounts, onSaved }: Props) {
   const router = useRouter();
   const m = meta(asset);
 
@@ -93,6 +95,7 @@ export function WalletTradeForm({ asset, accounts }: Props) {
       setToman("");
       setBank("");
       router.refresh();
+      onSaved();
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : "خطای ناشناخته");
     } finally {
@@ -104,30 +107,29 @@ export function WalletTradeForm({ asset, accounts }: Props) {
   const quantityValid = quantityRe.test(quantity);
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="flex flex-col gap-4 rounded-xl border border-border bg-card p-6 text-card-foreground shadow-soft"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-base font-semibold leading-6">
-          {side === "BUY" ? `خرید ${m.title}` : `فروش ${m.title}`}
-        </h3>
-        <div className="flex rounded-lg border border-input bg-background/60 p-0.5">
-          {(["BUY", "SELL"] as const).map((s) => (
-            <button
-              key={s}
-              type="button"
-              aria-pressed={side === s}
-              onClick={() => setSide(s)}
-              className={cn(
-                "h-8 flex-1 rounded-md px-3 text-sm font-semibold transition-colors",
-                side === s ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {s === "BUY" ? "خرید" : "فروش"}
-            </button>
-          ))}
-        </div>
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <div
+        className="flex rounded-lg border border-input bg-background/60 p-0.5"
+        role="group"
+        aria-label="نوع معامله"
+      >
+        {(["BUY", "SELL"] as const).map((s) => (
+          <button
+            key={s}
+            type="button"
+            aria-pressed={side === s}
+            onClick={() => setSide(s)}
+            className={cn(
+              "h-9 flex-1 rounded-md px-3 text-sm font-semibold transition-colors motion-reduce:transition-none",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              side === s
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {s === "BUY" ? "خرید" : "فروش"}
+          </button>
+        ))}
       </div>
 
       {error !== null ? (
@@ -142,9 +144,7 @@ export function WalletTradeForm({ asset, accounts }: Props) {
         </p>
       ) : (
         <div className="space-y-1.5">
-          <Label htmlFor="wt-bank">
-            {side === "BUY" ? "برداشت از حساب" : "واریز به حساب"}
-          </Label>
+          <Label htmlFor="wt-bank">{side === "BUY" ? "برداشت از حساب" : "واریز به حساب"}</Label>
           <Select
             id="wt-bank"
             required
@@ -185,14 +185,18 @@ export function WalletTradeForm({ asset, accounts }: Props) {
         </p>
       </div>
 
-      <Button
-        type="submit"
-        variant={side === "BUY" ? "default" : "destructive"}
-        disabled={busy || accounts.length === 0}
-        className="self-start"
-      >
-        {busy ? "…" : side === "BUY" ? `ثبت خرید ${m.title}` : `ثبت فروش ${m.title}`}
-      </Button>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" onClick={onSaved}>
+          انصراف
+        </Button>
+        <Button
+          type="submit"
+          variant={side === "BUY" ? "default" : "destructive"}
+          disabled={busy || accounts.length === 0}
+        >
+          {busy ? "در حال ثبت…" : side === "BUY" ? `ثبت خرید ${m.title}` : `ثبت فروش ${m.title}`}
+        </Button>
+      </div>
     </form>
   );
 }

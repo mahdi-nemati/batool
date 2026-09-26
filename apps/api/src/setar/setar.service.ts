@@ -1,13 +1,20 @@
 import { Injectable } from "@nestjs/common";
 import { Prisma } from "@batool/database";
+import { AssetKind } from "@batool/types";
 import type {
   SetarProfile,
   SetarSession as SetarSessionRow,
   SetarTuitionPayment as SetarTuitionPaymentRow,
 } from "@batool/database";
-import type { SetarSessionDto, SetarStatusDto, SetarTuitionPaymentDto } from "@batool/types";
+import type {
+  PaginatedResponse,
+  SetarSessionDto,
+  SetarStatusDto,
+  SetarTuitionPaymentDto,
+} from "@batool/types";
 import { PrismaService } from "../database/prisma.service";
 import { ApiError } from "../common/errors/api-error";
+import { paginate, type PageRequest } from "../common/pagination/pagination";
 import { AssetRegistryService } from "../assets/asset-registry.service";
 import { formatTomanFa } from "../common/formatting/fa";
 import { cycleProgress, sessionRangeForCycle, SESSIONS_PER_PAYMENT } from "./cycle";
@@ -39,30 +46,51 @@ export class SetarService {
     return this.buildStatus(profile, await this.deriveProgress(this.prisma, profile.id));
   }
 
-  async sessions(userId: string): Promise<SetarSessionDto[]> {
+  async sessions(userId: string, page: PageRequest): Promise<PaginatedResponse<SetarSessionDto>> {
     const profile = await this.prisma.setarProfile.findUnique({ where: { userId } });
     if (profile === null) {
-      return [];
+      return paginate<SetarSessionDto>([], 0, page);
     }
-    const rows = await this.prisma.setarSession.findMany({
-      where: { setarProfileId: profile.id },
-      orderBy: { sessionNo: "asc" },
-      take: 100,
-    });
-    return rows.map((s) => this.toSessionDto(s));
+    const where = { setarProfileId: profile.id };
+    const [rows, total] = await Promise.all([
+      this.prisma.setarSession.findMany({
+        where,
+        orderBy: { sessionNo: "desc" },
+        skip: page.skip,
+        take: page.take,
+      }),
+      this.prisma.setarSession.count({ where }),
+    ]);
+    return paginate(
+      rows.map((s) => this.toSessionDto(s)),
+      total,
+      page,
+    );
   }
 
-  async payments(userId: string): Promise<SetarTuitionPaymentDto[]> {
+  async payments(
+    userId: string,
+    page: PageRequest,
+  ): Promise<PaginatedResponse<SetarTuitionPaymentDto>> {
     const profile = await this.prisma.setarProfile.findUnique({ where: { userId } });
     if (profile === null) {
-      return [];
+      return paginate<SetarTuitionPaymentDto>([], 0, page);
     }
-    const rows = await this.prisma.setarTuitionPayment.findMany({
-      where: { setarProfileId: profile.id },
-      orderBy: { cycleNo: "asc" },
-      take: 100,
-    });
-    return rows.map((p) => this.toPaymentDto(p));
+    const where = { setarProfileId: profile.id };
+    const [rows, total] = await Promise.all([
+      this.prisma.setarTuitionPayment.findMany({
+        where,
+        orderBy: { cycleNo: "desc" },
+        skip: page.skip,
+        take: page.take,
+      }),
+      this.prisma.setarTuitionPayment.count({ where }),
+    ]);
+    return paginate(
+      rows.map((p) => this.toPaymentDto(p)),
+      total,
+      page,
+    );
   }
 
   // ---- create / edit (guarded) ---------------------------------------------
@@ -185,8 +213,9 @@ export class SetarService {
       }
 
       const asset = await this.registry.resolve(tx, userId, dto.assetKind, dto.assetId);
-      if (asset.currency !== "TOMAN") {
-        throw ApiError.validation("assetId", "منبع پرداخت باید حساب بانکی یا صندوق باشد");
+      // Defensive: the DTO already restricts this to BANK, never trust the client.
+      if (asset.kind !== AssetKind.BANK) {
+        throw ApiError.validation("assetKind", "پرداخت شهریه فقط از حساب بانکی انجام می‌شود");
       }
       await this.registry.lock(tx, asset, userId);
       const balance = await this.registry.balanceOf(tx, asset);

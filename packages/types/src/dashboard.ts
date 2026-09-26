@@ -78,14 +78,9 @@ export interface DashboardStatisticsDto {
     goldGram: string;
     usd: string;
   };
-  setar: {
-    totalSessions: number;
-    paidCycles: number;
-    currentCycleNo: number;
-    sessionsInCurrentCycle: number;
-    sessionsRemaining: number;
-    tuitionPayments: number;
-  };
+  // NOTE: Setar session/class metrics are intentionally NOT exposed here. Setar
+  // tuition payments are ordinary EXPENSE transactions, so they already appear
+  // in `monthly`, `expenseCategories` and `trend` under their own category.
 }
 
 export interface DashboardSetarDto {

@@ -1,12 +1,14 @@
-import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query } from "@nestjs/common";
 import type {
   ApiResponse,
   AuthUser,
+  PaginatedResponse,
   SetarSessionDto,
   SetarStatusDto,
   SetarTuitionPaymentDto,
 } from "@batool/types";
 import { CurrentUser } from "../common/auth/decorators";
+import { parsePage } from "../common/pagination/pagination";
 import { SetarService } from "./setar.service";
 import {
   CreateSetarDto,
@@ -43,8 +45,12 @@ export class SetarController {
   }
 
   @Get("sessions")
-  async sessions(@CurrentUser() user: AuthUser): Promise<ApiResponse<SetarSessionDto[]>> {
-    return { data: await this.service.sessions(user.id) };
+  async sessions(
+    @CurrentUser() user: AuthUser,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ): Promise<ApiResponse<PaginatedResponse<SetarSessionDto>>> {
+    return { data: await this.service.sessions(user.id, parsePage(page, pageSize)) };
   }
 
   @Post("sessions")
@@ -56,8 +62,12 @@ export class SetarController {
   }
 
   @Get("payments")
-  async payments(@CurrentUser() user: AuthUser): Promise<ApiResponse<SetarTuitionPaymentDto[]>> {
-    return { data: await this.service.payments(user.id) };
+  async payments(
+    @CurrentUser() user: AuthUser,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+  ): Promise<ApiResponse<PaginatedResponse<SetarTuitionPaymentDto>>> {
+    return { data: await this.service.payments(user.id, parsePage(page, pageSize)) };
   }
 
   @Post("pay")

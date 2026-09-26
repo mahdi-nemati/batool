@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DashboardSummaryDto } from "@batool/types";
-import { Banknote, CalendarClock, Coins, Eye, EyeOff, Minus, Plus } from "lucide-react";
+import { Banknote, CalendarClock, Coins, Eye, EyeOff, Minus, Plus, Users } from "lucide-react";
 import { ApiClientError } from "@/lib/api/client";
 import { getDashboardSummary } from "@/lib/api/dashboard";
 import { formatJalaliDate } from "@/lib/formatting/jalali";
@@ -21,7 +21,9 @@ export function DashboardClient() {
   const [summary, setSummary] = useState<DashboardSummaryDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showTotals, setShowTotals] = useState(true);
-  const [dialog, setDialog] = useState<"INCOME" | "EXPENSE" | null>(null);
+  const [dialog, setDialog] = useState<{ type: "INCOME" | "EXPENSE"; shared: boolean } | null>(
+    null,
+  );
 
   const load = useCallback(() => {
     setError(null);
@@ -40,7 +42,9 @@ export function DashboardClient() {
     return error === null ? (
       <DashboardSkeleton />
     ) : (
-      <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-danger">{error}</p>
+      <p className="rounded-lg border border-danger/40 bg-danger/5 px-3 py-2 text-danger">
+        {error}
+      </p>
     );
   }
 
@@ -101,30 +105,37 @@ export function DashboardClient() {
               label="طلا"
               value={formatQuantity(summary.quantities.goldGram)}
               unit="گرم"
+              show={showTotals}
             />
             <MiniStat
               icon={Banknote}
               label="دلار"
               value={formatQuantity(summary.quantities.usd)}
               unit="دلار"
+              show={showTotals}
             />
           </div>
         </div>
       </section>
 
       <section aria-label="اقدامات سریع و خلاصه ماه" className="grid gap-4 lg:grid-cols-3">
-        <QuickActionsPanel onAdd={setDialog} />
+        <QuickActionsPanel onAdd={(type, shared) => setDialog({ type, shared })} />
         <ThisMonthPanel
           className="lg:col-span-2"
           monthly={summary.monthly}
           monthLabel={summary.month.label}
+          show={showTotals}
         />
       </section>
 
-      <UpcomingInstallmentsPanel installments={summary.obligations.installments} />
+      <UpcomingInstallmentsPanel
+        installments={summary.obligations.installments}
+        show={showTotals}
+      />
 
       <AddTransactionDialog
-        type={dialog}
+        type={dialog?.type ?? null}
+        defaultSplit={dialog?.shared ?? false}
         onClose={() => setDialog(null)}
         onSaved={() => {
           load();
@@ -170,9 +181,7 @@ function BalanceCard({
               <li key={item.id} className="flex items-center justify-between gap-2 py-2 text-sm">
                 <span className={cn("truncate", !item.isActive && "text-muted")}>
                   {item.name}
-                  {!item.isActive && (
-                    <span className="ms-1 text-xs text-muted">(غیرفعال)</span>
-                  )}
+                  {!item.isActive && <span className="ms-1 text-xs text-muted">(غیرفعال)</span>}
                 </span>
                 <b
                   className={cn(
@@ -201,12 +210,15 @@ function MiniStat({
   label,
   value,
   unit,
+  show,
   className,
 }: {
   icon: React.ElementType;
   label: string;
   value: string;
   unit: string;
+  /** Quantities are money-equivalent: the same privacy toggle hides them. */
+  show: boolean;
   className?: string | undefined;
 }) {
   return (
@@ -217,7 +229,8 @@ function MiniStat({
       <div>
         <p className="text-xs text-muted">{label}</p>
         <p className="mt-0.5 text-lg font-bold">
-          {value} <span className="text-xs font-normal text-muted">{unit}</span>
+          {show ? value : "••••"}{" "}
+          <span className="text-xs font-normal text-muted">{show ? unit : ""}</span>
         </p>
       </div>
     </Card>
@@ -246,10 +259,12 @@ function Panel({
 function ThisMonthPanel({
   monthly,
   monthLabel,
+  show,
   className,
 }: {
   monthly: DashboardSummaryDto["monthly"];
   monthLabel: string;
+  show: boolean;
   className?: string | undefined;
 }) {
   const net = monthly.netCashFlowToman;
@@ -260,12 +275,19 @@ function ThisMonthPanel({
           label="درآمد"
           value={formatTomanUnit(monthly.incomeToman)}
           tone="positive"
+          show={show}
         />
-        <Metric label="هزینه" value={formatTomanUnit(monthly.expenseToman)} tone="negative" />
+        <Metric
+          label="هزینه"
+          value={formatTomanUnit(monthly.expenseToman)}
+          tone="negative"
+          show={show}
+        />
         <Metric
           label="خالص"
           value={formatTomanUnit(net)}
           tone={net >= 0 ? "positive" : "negative"}
+          show={show}
         />
       </div>
     </Panel>
@@ -276,10 +298,12 @@ function Metric({
   label,
   value,
   tone,
+  show,
 }: {
   label: string;
   value: string;
   tone: "positive" | "negative";
+  show: boolean;
 }) {
   return (
     <div className="rounded-xl border border-line bg-paper p-3">
@@ -290,7 +314,7 @@ function Metric({
           tone === "positive" ? "text-accent-dark" : "text-danger",
         )}
       >
-        {value}
+        {show ? value : "••••••"}
       </p>
     </div>
   );
@@ -300,21 +324,40 @@ function QuickActionsPanel({
   onAdd,
   className,
 }: {
-  onAdd: (type: "INCOME" | "EXPENSE") => void;
+  onAdd: (type: "INCOME" | "EXPENSE", shared: boolean) => void;
   className?: string | undefined;
 }) {
   return (
     <Panel className={className} title="اقدامات سریع">
       <div className="flex flex-col gap-2">
-        <Button variant="destructive" size="lg" className="w-full" onClick={() => onAdd("EXPENSE")}>
+        <Button
+          variant="destructive"
+          size="lg"
+          className="w-full"
+          onClick={() => onAdd("EXPENSE", false)}
+        >
           <Minus /> ثبت هزینه
         </Button>
-        <Button variant="default" size="lg" className="w-full" onClick={() => onAdd("INCOME")}>
+        <Button
+          variant="outline"
+          size="lg"
+          className="w-full"
+          onClick={() => onAdd("EXPENSE", true)}
+        >
+          <Users /> ثبت هزینه مشترک
+        </Button>
+        <Button
+          variant="default"
+          size="lg"
+          className="w-full"
+          onClick={() => onAdd("INCOME", false)}
+        >
           <Plus /> ثبت درآمد
         </Button>
       </div>
       <p className="mt-3 text-xs text-muted">
-        بدون خروج از صفحه؛ جزئیات بیشتر در صفحه تراکنش‌ها.
+        بدون خروج از صفحه؛ هزینه مشترک بین چند نفر تقسیم می‌شود و سهم بقیه به طرف‌حساب‌هایشان اضافه
+        می‌گردد.
       </p>
     </Panel>
   );
@@ -322,9 +365,11 @@ function QuickActionsPanel({
 
 function UpcomingInstallmentsPanel({
   installments,
+  show,
   className,
 }: {
   installments: DashboardSummaryDto["obligations"]["installments"];
+  show: boolean;
   className?: string | undefined;
 }) {
   return (
@@ -348,7 +393,7 @@ function UpcomingInstallmentsPanel({
                   {formatJalaliDate(item.nextDueDate)} · {dueLabel(item.remainingDays)}
                 </span>
               </span>
-              <b className="shrink-0">{formatTomanUnit(item.amountToman)}</b>
+              <b className="shrink-0">{show ? formatTomanUnit(item.amountToman) : "••••"}</b>
             </div>
           ))}
           <Link
