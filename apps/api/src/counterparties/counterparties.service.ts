@@ -5,10 +5,11 @@ import {
   type ConnectionDto,
   type CounterpartyDto,
   type CounterpartyHistoryDto,
+  type PaginatedResponse,
 } from "@batool/types";
 import { PrismaService } from "../database/prisma.service";
 import { ApiError } from "../common/errors/api-error";
-import type { PageRequest } from "../common/pagination/pagination";
+import { paginate, type PageRequest } from "../common/pagination/pagination";
 import { DebtsService } from "../debts/debts.service";
 import type { CreateExternalCounterpartyDto, UpdateCounterpartyDto } from "./dto/counterparty.dto";
 
@@ -73,15 +74,37 @@ export class CounterpartiesService {
     );
   }
 
-  async list(userId: string): Promise<CounterpartyDto[]> {
-    const cps = await this.prisma.counterparty.findMany({
-      where: { ownerUserId: userId },
-      orderBy: { createdAt: "asc" },
-    });
+  async list(
+    userId: string,
+    page: PageRequest,
+    rawSearch?: string,
+  ): Promise<PaginatedResponse<CounterpartyDto>> {
+    const search = rawSearch?.trim();
+    const where: Prisma.CounterpartyWhereInput = {
+      ownerUserId: userId,
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { linkedUser: { username: { contains: search, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
+    };
+    const [cps, total] = await Promise.all([
+      this.prisma.counterparty.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip: page.skip,
+        take: page.take,
+      }),
+      this.prisma.counterparty.count({ where }),
+    ]);
     const nets = await this.debts.netMapForUser(userId);
-    return Promise.all(
+    const data = await Promise.all(
       cps.map((cp) => this.debts.toCounterpartyDto(this.prisma, cp, nets.get(cp.id) ?? 0n)),
     );
+    return paginate(data, total, page);
   }
 
   async detail(userId: string, id: string, page: PageRequest): Promise<CounterpartyHistoryDto> {

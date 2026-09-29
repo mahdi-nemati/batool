@@ -7,6 +7,7 @@ import type {
   DebtDirection,
   DebtEventDto,
   DebtSummaryDto,
+  PaginatedResponse,
 } from "@batool/types";
 import { queryString, request } from "./client";
 
@@ -35,8 +36,26 @@ export interface SettleInput {
   occurredAt?: string;
 }
 
-export const listCounterparties = () =>
-  unwrap(request<ApiResponse<CounterpartyDto[]>>("/counterparties"));
+export const listCounterparties = (page = 1, pageSize?: number, search?: string) =>
+  unwrap(
+    request<ApiResponse<PaginatedResponse<CounterpartyDto>>>(
+      `/counterparties${queryString(
+        Object.entries({ page, pageSize, search }) as [string, string | number | undefined][],
+      )}`,
+    ),
+  );
+
+/** Loads every counterparty for selectors that need the complete reference list. */
+export const listAllCounterparties = async () => {
+  const all: CounterpartyDto[] = [];
+  let page = 1;
+  while (true) {
+    const result = await listCounterparties(page, 100);
+    all.push(...result.data);
+    if (all.length >= result.meta.total || result.data.length === 0) return all;
+    page += 1;
+  }
+};
 
 export const createExternalCounterparty = (name: string) =>
   unwrap(

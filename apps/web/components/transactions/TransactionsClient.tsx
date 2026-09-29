@@ -11,7 +11,7 @@ import type {
 } from "@batool/types";
 import { listBankAccounts } from "@/lib/api/finance";
 import { listActiveCategories } from "@/lib/api/categories";
-import { listCounterparties } from "@/lib/api/debts";
+import { listAllCounterparties } from "@/lib/api/debts";
 import {
   listTransactions,
   type ListTransactionsInput,
@@ -65,7 +65,7 @@ export function TransactionsClient() {
       listBankAccounts(),
       listActiveCategories("INCOME"),
       listActiveCategories("EXPENSE"),
-      listCounterparties(),
+      listAllCounterparties(),
     ])
       .then(([accounts, incomeCats, expenseCats, counterparties]) => {
         setData({

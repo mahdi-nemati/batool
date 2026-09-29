@@ -5,6 +5,7 @@ import type {
   ConnectionDto,
   CounterpartyHistoryDto,
   CounterpartyDto,
+  PaginatedResponse,
 } from "@batool/types";
 import { CurrentUser } from "../common/auth/decorators";
 import { parsePage } from "../common/pagination/pagination";
@@ -20,8 +21,13 @@ export class CounterpartiesController {
   constructor(private readonly service: CounterpartiesService) {}
 
   @Get()
-  async list(@CurrentUser() user: AuthUser): Promise<ApiResponse<CounterpartyDto[]>> {
-    return { data: await this.service.list(user.id) };
+  async list(
+    @CurrentUser() user: AuthUser,
+    @Query("page") page?: string,
+    @Query("pageSize") pageSize?: string,
+    @Query("search") search?: string,
+  ): Promise<ApiResponse<PaginatedResponse<CounterpartyDto>>> {
+    return { data: await this.service.list(user.id, parsePage(page, pageSize), search) };
   }
 
   @Post()

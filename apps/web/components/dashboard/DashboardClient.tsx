@@ -81,6 +81,7 @@ export function DashboardClient() {
             label="حساب‌های بانکی"
             items={summary.balances.banks}
             show={showTotals}
+            viewAllHref="/dashboard/assets"
             emptyNote="حسابی ثبت نشده است."
             emptyAction={
               <Link href="/dashboard/assets" className="text-sm font-bold text-primary">
@@ -92,6 +93,7 @@ export function DashboardClient() {
             label="صندوق‌ها"
             items={summary.balances.funds}
             show={showTotals}
+            viewAllHref="/dashboard/assets"
             emptyNote="صندوقی ثبت نشده است."
             emptyAction={
               <Link href="/dashboard/assets" className="text-sm font-bold text-primary">
@@ -150,6 +152,7 @@ function BalanceCard({
   label,
   items,
   show,
+  viewAllHref,
   emptyNote,
   emptyAction,
   className,
@@ -157,11 +160,13 @@ function BalanceCard({
   label: string;
   items: DashboardSummaryDto["balances"]["banks"];
   show: boolean;
+  viewAllHref: string;
   emptyNote: string;
   emptyAction?: React.ReactNode;
   className?: string | undefined;
 }) {
   const total = items.reduce((sum, item) => sum + item.balanceToman, 0);
+  const visibleItems = items.slice(0, 5);
   const animated = useCountUp(show ? total : 0);
   return (
     <Card className={cn("flex flex-col", className)}>
@@ -174,10 +179,10 @@ function BalanceCard({
           <span className="mb-0.5 text-sm text-muted">تومان</span>
         </div>
       </div>
-      <div className="mt-auto p-6 pt-0">
-        {items.length > 0 ? (
+      {items.length > 0 ? (
+        <div className="p-6 pt-0">
           <ul className="flex flex-col divide-y divide-line">
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <li key={item.id} className="flex items-center justify-between gap-2 py-2 text-sm">
                 <span className={cn("truncate", !item.isActive && "text-muted")}>
                   {item.name}
@@ -194,13 +199,23 @@ function BalanceCard({
               </li>
             ))}
           </ul>
-        ) : (
+          {items.length > visibleItems.length ? (
+            <Link
+              href={viewAllHref}
+              className="mt-3 inline-block text-sm font-bold text-primary hover:underline"
+            >
+              مشاهده همه دارایی‌ها ←
+            </Link>
+          ) : null}
+        </div>
+      ) : items.length === 0 ? (
+        <div className="p-6 pt-0">
           <div className="border-t border-line pt-3">
             <p className="text-sm text-muted">{emptyNote}</p>
             {emptyAction && <div className="mt-2">{emptyAction}</div>}
           </div>
-        )}
-      </div>
+        </div>
+      ) : null}
     </Card>
   );
 }
@@ -372,8 +387,23 @@ function UpcomingInstallmentsPanel({
   show: boolean;
   className?: string | undefined;
 }) {
+  const visibleInstallments = [...installments]
+    .sort(
+      (first, second) =>
+        first.remainingDays - second.remainingDays ||
+        first.nextDueDate.localeCompare(second.nextDueDate),
+    )
+    .slice(0, 5);
+
   return (
-    <Panel className={className} title="پرداخت‌های نزدیک">
+    <Panel
+      className={className}
+      title={
+        installments.length > 5
+          ? `پرداخت‌های نزدیک (${formatQuantity(installments.length)} مورد)`
+          : "پرداخت‌های نزدیک"
+      }
+    >
       {installments.length === 0 ? (
         <EmptyState
           icon={CalendarClock}
@@ -382,7 +412,7 @@ function UpcomingInstallmentsPanel({
         />
       ) : (
         <div className="flex flex-col gap-2">
-          {installments.map((item) => (
+          {visibleInstallments.map((item) => (
             <div
               key={item.id}
               className="flex items-center justify-between gap-3 rounded-lg bg-paper px-3 py-2 text-sm"
@@ -400,7 +430,7 @@ function UpcomingInstallmentsPanel({
             href="/dashboard/installments"
             className="mt-2 inline-block text-sm font-bold text-primary"
           >
-            همه اقساط ←
+            {installments.length > 5 ? "مشاهده همه اقساط ←" : "همه اقساط ←"}
           </Link>
         </div>
       )}

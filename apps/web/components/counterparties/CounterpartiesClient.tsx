@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Link2, Plus, Scale, UserRound, Users, UserPlus } from "lucide-react";
-import type { CounterpartyDto, ConnectionDto, DebtSummaryDto } from "@batool/types";
+import { Link2, Plus, Scale, Search, UserRound, Users, UserPlus } from "lucide-react";
+import type { ConnectionDto, CounterpartyDto, DebtSummaryDto, PaginationMeta } from "@batool/types";
 import { ApiClientError } from "@/lib/api/client";
 import {
   connectUser,
@@ -23,36 +23,55 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { HoverCard } from "@/components/ui/hover-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Pagination } from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/cn";
 
 const wholeFormat = new Intl.NumberFormat("fa-IR", { maximumFractionDigits: 0 });
+const COUNTERPARTY_PAGE_SIZE = 20;
 
 export function CounterpartiesClient() {
   const [counterparties, setCps] = useState<CounterpartyDto[]>([]);
+  const [pagination, setPagination] = useState<PaginationMeta | null>(null);
   const [connections, setConns] = useState<ConnectionDto[]>([]);
   const [summary, setSummary] = useState<DebtSummaryDto | null>(null);
   const [form, setForm] = useState<"external" | "connect" | null>(null);
+  const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const closeForm = () => setForm(null);
 
   const reload = useCallback(async () => {
-    const [cps, conns, sum] = await Promise.all([
-      listCounterparties(),
-      listConnections(),
-      debtSummary(),
-    ]);
-    setCps(cps);
-    setConns(conns);
-    setSummary(sum);
-  }, []);
+    setLoading(true);
+    setError(null);
+    try {
+      const [cps, conns, sum] = await Promise.all([
+        listCounterparties(page, COUNTERPARTY_PAGE_SIZE, search),
+        listConnections(),
+        debtSummary(),
+      ]);
+      setCps(cps.data);
+      setPagination(cps.meta);
+      setConns(conns);
+      setSummary(sum);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, search]);
 
   useEffect(() => {
-    reload()
-      .catch((e) => setError(e instanceof ApiClientError ? e.message : "خطا در بارگذاری"))
-      .finally(() => setLoading(false));
+    reload().catch((e) => setError(e instanceof ApiClientError ? e.message : "خطا در بارگذاری"));
   }, [reload]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   async function onToggleArchive(cp: CounterpartyDto) {
     setError(null);
@@ -141,13 +160,27 @@ export function CounterpartiesClient() {
               فهرست طرف‌حساب‌ها
             </CardTitle>
             <CardDescription>
-              برای دیدن جزئیات روی هر شخص ضربه بزنید. برای اعضای بتول، با نگه‌داشتن اشاره‌گر روی
-              نام، خلاصه‌ی بدهی نمایش داده می‌شود.
+              برای دیدن جزئیات روی هر شخص ضربه بزنید. جست‌وجو با نام طرف‌حساب یا نام کاربری اعضای
+              بتول انجام می‌شود.
             </CardDescription>
           </div>
-          <Badge variant="secondary">{wholeFormat.format(counterparties.length)} مورد</Badge>
+          <Badge variant="secondary">{wholeFormat.format(pagination?.total ?? 0)} مورد</Badge>
         </CardHeader>
         <CardContent>
+          <div className="mb-4">
+            <label htmlFor="counterparty-search" className="sr-only">
+              جست‌وجوی طرف‌حساب
+            </label>
+            <Input
+              id="counterparty-search"
+              type="search"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="جست‌وجو با نام یا نام کاربری…"
+              startAddon={<Search className="size-4" aria-hidden />}
+            />
+          </div>
+
           {loading ? (
             <div className="flex flex-col gap-2">
               <Skeleton className="h-14 w-full" />
@@ -157,8 +190,12 @@ export function CounterpartiesClient() {
           ) : counterparties.length === 0 ? (
             <EmptyState
               icon={Users}
-              title="هنوز طرف حسابی ندارید"
-              description="با افزودن طرف حساب خارجی یا اتصال یک کاربر بتول، روابط مالی خود را مدیریت کنید."
+              title={search.length > 0 ? "نتیجه‌ای پیدا نشد" : "هنوز طرف حسابی ندارید"}
+              description={
+                search.length > 0
+                  ? "نام یا نام کاربری دیگری را جست‌وجو کنید."
+                  : "با افزودن طرف حساب خارجی یا اتصال یک کاربر بتول، روابط مالی خود را مدیریت کنید."
+              }
             />
           ) : (
             <ul className="flex flex-col divide-y divide-line">
@@ -189,6 +226,14 @@ export function CounterpartiesClient() {
               ))}
             </ul>
           )}
+          {pagination !== null && pagination.total > pagination.pageSize ? (
+            <Pagination
+              className="mt-4"
+              meta={pagination}
+              onPageChange={setPage}
+              label="صفحه‌بندی طرف‌حساب‌ها"
+            />
+          ) : null}
         </CardContent>
       </Card>
     </div>

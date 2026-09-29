@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { BankAccountDto, CategoryDto, CounterpartyDto } from "@batool/types";
 import { listActiveCategories } from "@/lib/api/categories";
 import { listBankAccounts } from "@/lib/api/finance";
-import { listCounterparties } from "@/lib/api/debts";
+import { listAllCounterparties } from "@/lib/api/debts";
 import { createExpense, createIncome } from "@/lib/api/transactions";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -74,7 +74,7 @@ export function AddTransactionDialog({
     setSplit(type === "EXPENSE" && defaultSplit);
     setShares([{ ...blankShare }]);
     let active = true;
-    Promise.all([listBankAccounts(), listActiveCategories(type), listCounterparties()])
+    Promise.all([listBankAccounts(), listActiveCategories(type), listAllCounterparties()])
       .then(([accounts, categories, counterparties]) => {
         if (!active) return;
         setData({
