@@ -64,9 +64,9 @@ export default async function AssetsPage() {
               ) : null}
               {fundCount > 0 ? (
                 <Badge variant="secondary">{fundCount} صندوق</Badge>
-              ) : (
+              ) : accountCount === 0 ? (
                 <span className="text-sm text-muted">هنوز حساب یا صندوقی ثبت نشده است.</span>
-              )}
+              ) : null}
             </div>
           </div>
         </Card>

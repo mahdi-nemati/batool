@@ -1,3 +1,4 @@
+import { Type } from "class-transformer";
 import { IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
 
 export class CreateFundDto {
@@ -8,6 +9,7 @@ export class CreateFundDto {
   // Optional savings target. Funds never accept a direct/initial balance: their
   // balance changes only via transfers (enforced in the transfers module).
   @IsOptional()
+  @Type(() => Number)
   @IsInt({ message: "مبلغ هدف باید عدد صحیح باشد" })
   @Min(0, { message: "مبلغ هدف نمی‌تواند منفی باشد" })
   @Max(Number.MAX_SAFE_INTEGER, { message: "مبلغ هدف از حد مجاز بیشتر است" })
@@ -24,6 +26,7 @@ export class UpdateFundDto {
 
   // `null` explicitly clears an existing goal; omitting the key leaves it as-is.
   @IsOptional()
+  @Type(() => Number)
   @IsInt({ message: "مبلغ هدف باید عدد صحیح باشد" })
   @Min(0, { message: "مبلغ هدف نمی‌تواند منفی باشد" })
   @Max(Number.MAX_SAFE_INTEGER, { message: "مبلغ هدف از حد مجاز بیشتر است" })
